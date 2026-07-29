@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STATUS: A Modern Man Simulator</title>
+<style>
+  :root{
+    --bg:#1b1e22;
+    --panel:#242830;
+    --panel-light:#31363f;
+    --paper:#eef0f1;
+    --paper-dim:#a8adb5;
+    --signal:#4c8bf5;
+    --signal-glow:#7aa9ff;
+    --amber:#e0a83e;
+    --stress-red:#c1483f;
+    --sage:#4f9c8a;
+    --money:#7cd18a;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;
+    background:
+      radial-gradient(ellipse at 80% -10%, rgba(76,139,245,0.06), transparent 55%),
+      linear-gradient(180deg, #1b1e22, #17191c);
+    color:var(--paper);
+    font-family:'Segoe UI',Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,.display{
+    font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    font-weight:700;
+    letter-spacing:0.2px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 60px;}
+
+  header{
+    display:flex;justify-content:space-between;align-items:center;
+    flex-wrap:wrap;gap:14px;
+    border-bottom:2px solid var(--panel-light);
+    padding-bottom:16px;margin-bottom:22px;
+  }
+  header .title-block h1{margin:0;font-size:1.9rem;color:var(--signal-glow);}
+  header .title-block p{margin:4px 0 0;color:var(--paper-dim);font-size:0.85rem;}
+
+  .day-badge{
+    font-family:'Trebuchet MS',sans-serif;
+    background:var(--panel);border:1px solid var(--panel-light);
+    padding:8px 16px;border-radius:8px;text-align:center;min-width:130px;
+  }
+  .day-badge span{display:block;font-size:1.3rem;color:var(--signal-glow);font-weight:700;}
+  .day-badge small{color:var(--paper-dim);font-size:0.62rem;letter-spacing:1px;text-transform:uppercase;}
+
+  .money-badge{
+    background:var(--panel);border:1px solid var(--panel-light);
+    padding:8px 16px;border-radius:8px;text-align:center;min-width:100px;
+  }
+  .money-badge span{display:block;font-size:1.3rem;color:var(--money);font-weight:700;font-family:Consolas,monospace;}
+  .money-badge small{color:var(--paper-dim);font-size:0.62rem;letter-spacing:1px;text-transform:uppercase;}
+
+  /* iOS-style Autopilot toggle */
+  .ai-toggle{
+    display:flex;align-items:center;gap:10px;
+    background:var(--panel);border:1px solid var(--panel-light);
+    padding:8px 14px;border-radius:8px;cursor:pointer;user-select:none;
+    transition:border-color .2s;
+  }
+  .ai-toggle:hover{border-color:var(--signal);}
+  .ai-toggle .lever{
+    width:46px;height:24px;background:#3a3f47;border-radius:12px;
+    position:relative;flex-shrink:0;transition:background .2s;
+  }
+  .ai-toggle .lever::after{
+    content:'';position:absolute;top:2px;left:2px;
+    width:20px;height:20px;border-radius:50%;background:var(--paper-dim);
+    transition:left .2s, background .2s;box-shadow:0 1px 3px rgba(0,0,0,0.4);
+  }
+  .ai-toggle.on .lever{background:var(--signal);}
+  .ai-toggle.on .lever::after{left:24px;background:#fff;}
+  .ai-toggle .label{font-family:'Trebuchet MS',sans-serif;font-size:0.8rem;font-weight:700;}
+  .ai-toggle .label small{display:block;color:var(--paper-dim);font-size:0.62rem;font-weight:normal;}
+
+  .grid{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:20px;}
+  @media(max-width:900px){.grid{grid-template-columns:1fr;}}
+
+  .panel{
+    background:var(--panel);border:1px solid var(--panel-light);
+    border-radius:10px;padding:16px;
+  }
+  .panel h2{font-size:0.85rem;color:var(--signal-glow);margin:0 0 14px;
+    border-bottom:1px solid var(--panel-light);padding-bottom:8px;
+    text-transform:uppercase;letter-spacing:0.5px;}
+
+  .stat{margin-bottom:14px;}
+  .stat-row{display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:4px;color:var(--paper-dim);}
+  .groove{height:12px;background:rgba(0,0,0,0.35);border-radius:6px;overflow:hidden;border:1px solid rgba(0,0,0,0.4);}
+  .fill{height:100%;transition:width .5s ease;border-radius:6px;}
+  .fill.hunger{background:linear-gradient(90deg,#8a5a1e,var(--amber));}
+  .fill.energy{background:linear-gradient(90deg,#2f6b5c,var(--sage));}
+  .fill.calm{background:linear-gradient(90deg,#3c5c8a,var(--signal));}
+  .fill.social{background:linear-gradient(90deg,#7a3a33,var(--stress-red));}
+  .fill.focus{background:linear-gradient(90deg,#6a6045,var(--paper-dim));}
+
+  .skill-line{font-size:0.75rem;color:var(--paper-dim);margin-top:10px;padding-top:10px;border-top:1px dashed var(--panel-light);}
+  .skill-line b{color:var(--paper);}
+
+  .stage{
+    position:relative;
+    background:radial-gradient(ellipse at 50% 20%, rgba(76,139,245,0.08), transparent 60%), #14161a;
+    border:1px solid var(--panel-light);border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    min-height:280px;overflow:hidden;
+  }
+  .screen-glow{
+    position:absolute;top:20px;left:50%;transform:translateX(-50%);
+    width:200px;height:160px;border-radius:14px;
+    background:radial-gradient(circle, rgba(76,139,245,0.28), transparent 70%);
+    opacity:0;transition:opacity .5s;pointer-events:none;
+    animation:pulse 2.6s infinite ease-in-out;
+  }
+  .screen-glow.active{opacity:1;}
+  @keyframes pulse{0%,100%{opacity:0.7;}50%{opacity:1;}}
+
+  #manFigure{transition:transform .3s;}
+  #manFigure.bump{animation:bump .5s ease;}
+  @keyframes bump{0%{transform:translateY(0);}30%{transform:translateY(-6px) rotate(-2deg);}60%{transform:translateY(2px) rotate(1deg);}100%{transform:translateY(0);}}
+
+  .action-badge{
+    position:absolute;top:12px;left:12px;
+    background:var(--panel);border:1px solid var(--panel-light);
+    border-radius:8px;padding:6px 10px;font-size:0.75rem;
+    display:flex;align-items:center;gap:6px;
+  }
+  .action-badge .ic{font-size:1.1rem;}
+
+  .notif-badge{
+    position:absolute;top:12px;right:12px;
+    background:var(--stress-red);color:#fff;
+    border-radius:20px;padding:4px 10px;font-size:0.7rem;font-weight:700;
+    opacity:0;transition:opacity .3s;
+  }
+  .notif-badge.show{opacity:1;}
+
+  .thought{
+    position:absolute;bottom:10px;left:0;right:0;text-align:center;
+    font-size:0.78rem;color:var(--paper-dim);font-style:italic;padding:0 16px;min-height:18px;
+  }
+
+  .actions-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  button.act{
+    background:#14161a;border:1px solid var(--panel-light);color:var(--paper);
+    padding:10px 8px;border-radius:8px;
+    font-family:'Trebuchet MS',sans-serif;font-size:0.7rem;font-weight:700;
+    text-transform:uppercase;letter-spacing:0.3px;
+    cursor:pointer;transition:background .15s, border-color .15s, transform .1s;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+  }
+  button.act .ic{font-size:1.3rem;}
+  button.act:hover:not(:disabled){border-color:var(--signal);background:#1c2028;}
+  button.act:active:not(:disabled){transform:scale(0.96);}
+  button.act:disabled{opacity:0.35;cursor:not-allowed;}
+
+  .log-panel{grid-column:1/-1;margin-top:20px;}
+  .log-box{
+    height:190px;overflow-y:auto;background:#101216;border:1px solid #000;
+    border-radius:8px;padding:10px 12px;
+    font-family:Consolas,'Courier New',monospace;font-size:0.78rem;
+    display:flex;flex-direction:column-reverse;
+  }
+  .log-entry{padding:3px 0;border-bottom:1px dotted rgba(255,255,255,0.05);color:var(--paper-dim);}
+  .log-entry:first-child{border-bottom:none;}
+  .log-entry.event{color:var(--amber);}
+  .log-entry.ai{color:var(--signal-glow);}
+  .log-entry.money{color:var(--money);}
+  .log-entry b{color:var(--paper);}
+
+  .footer-note{margin-top:18px;text-align:center;color:var(--paper-dim);font-size:0.7rem;font-style:italic;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="title-block">
+      <h1>Status: A Modern Man Simulator</h1>
+      <p>Balance the grind, the gym, the group chat, and the group chat notifications.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <div class="day-badge"><span id="dayCount">1</span><small id="timeOfDay">EARLY MORNING</small></div>
+      <div class="money-badge"><span id="moneyVal">$340</span><small>balance</small></div>
+      <div class="ai-toggle" id="aiToggle" onclick="toggleAI()">
+        <div class="lever"></div>
+        <div class="label">Autopilot<small>let the algorithm decide</small></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- STATS -->
+    <div class="panel">
+      <h2>Condition</h2>
+      <div class="stat">
+        <div class="stat-row"><span>Hunger</span><span id="hungerVal">70</span></div>
+        <div class="groove"><div class="fill hunger" id="hungerBar" style="width:70%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Energy</span><span id="energyVal">70</span></div>
+        <div class="groove"><div class="fill energy" id="energyBar" style="width:70%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Calm</span><span id="calmVal">55</span></div>
+        <div class="groove"><div class="fill calm" id="calmBar" style="width:55%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Social</span><span id="socialVal">50</span></div>
+        <div class="groove"><div class="fill social" id="socialBar" style="width:50%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Focus</span><span id="focusVal">50</span></div>
+        <div class="groove"><div class="fill focus" id="focusBar" style="width:50%"></div></div>
+      </div>
+      <div class="skill-line">
+        Side project: <b id="hobbyVal">0</b> hours logged &nbsp;·&nbsp;
+        Unread messages: <b id="notifVal">3</b>
+      </div>
+    </div>
+
+    <!-- FIGURE STAGE -->
+    <div class="panel" style="display:flex;flex-direction:column;">
+      <h2>Dave, 31, Product-Adjacent</h2>
+      <div class="stage">
+        <div class="screen-glow" id="screenGlow"></div>
+        <div class="action-badge"><span class="ic" id="badgeIcon">🧍</span><span id="badgeText">Idle</span></div>
+        <div class="notif-badge" id="notifBadge">●</div>
+        <svg id="manFigure" width="180" height="220" viewBox="0 0 180 220">
+          <ellipse cx="90" cy="205" rx="55" ry="8" fill="rgba(0,0,0,0.4)"/>
+          <!-- legs: jeans -->
+          <rect x="70" y="150" width="14" height="50" rx="4" fill="#3d5170"/>
+          <rect x="96" y="150" width="14" height="50" rx="4" fill="#33465f"/>
+          <!-- sneakers -->
+          <rect x="66" y="196" width="22" height="9" rx="4" fill="#eef0f1"/>
+          <rect x="92" y="196" width="22" height="9" rx="4" fill="#dcdfe2"/>
+          <!-- hoodie torso -->
+          <path d="M62 92 Q60 145 68 150 L112 150 Q120 145 118 92 Q90 80 62 92 Z" fill="#4a5568"/>
+          <!-- hoodie pocket -->
+          <rect x="76" y="122" width="28" height="16" rx="4" fill="#3b4351"/>
+          <!-- hood/collar -->
+          <path d="M70 92 Q90 84 110 92 L104 100 Q90 94 76 100 Z" fill="#3b4351"/>
+          <!-- head -->
+          <ellipse cx="90" cy="58" rx="24" ry="23" fill="#d9a878"/>
+          <!-- hair -->
+          <path d="M67 50 Q64 30 90 28 Q116 30 113 50 Q104 38 90 38 Q76 38 67 50 Z" fill="#2a2420"/>
+          <!-- eyes -->
+          <circle cx="83" cy="58" r="2.2" fill="#191510"/>
+          <circle cx="97" cy="58" r="2.2" fill="#191510"/>
+          <!-- eyebrows (tired) -->
+          <path d="M78 52 Q83 50 88 52" stroke="#2a2420" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path d="M92 52 Q97 50 102 52" stroke="#2a2420" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <!-- mouth -->
+          <path d="M82 71 Q90 74 98 71" stroke="#7a5236" stroke-width="2" fill="none" stroke-linecap="round" id="mouth"/>
+          <!-- static arm -->
+          <path d="M65 97 Q46 112 49 140" stroke="#4a5568" stroke-width="13" fill="none" stroke-linecap="round"/>
+          <!-- active arm -->
+          <g id="toolArm">
+            <path d="M115 97 Q139 102 145 130" stroke="#4a5568" stroke-width="13" fill="none" stroke-linecap="round"/>
+          </g>
+          <g id="toolItem"></g>
+        </svg>
+        <div class="thought" id="thoughtText">He hasn't checked his phone yet. It won't last.</div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="panel">
+      <h2>Actions</h2>
+      <div class="actions-grid" id="actionsGrid">
+        <button class="act" data-action="work"><span class="ic">💻</span>Work</button>
+        <button class="act" data-action="takeout"><span class="ic">🥡</span>Order food</button>
+        <button class="act" data-action="gym"><span class="ic">🏋️</span>Hit the gym</button>
+        <button class="act" data-action="scroll"><span class="ic">📱</span>Doomscroll</button>
+        <button class="act" data-action="call"><span class="ic">🎧</span>Call a friend</button>
+        <button class="act" data-action="sleep"><span class="ic">💤</span>Sleep</button>
+        <button class="act" data-action="meditate"><span class="ic">🧘</span>Meditate</button>
+        <button class="act" data-action="hustle"><span class="ic">🎸</span>Side hustle</button>
+      </div>
+    </div>
+
+    <!-- LOG -->
+    <div class="panel log-panel">
+      <h2>Activity feed</h2>
+      <div class="log-box" id="logBox"></div>
+    </div>
+
+  </div>
+
+  <p class="footer-note">Every action costs a little time and a little battery. Autopilot mode lets Dave decide for himself, chasing whatever stat is running lowest — for better or worse.</p>
+</div>
+
+<script>
+// ---------------- state ----------------
+const state = {
+  day: 1, tick: 0,
+  hunger: 70, energy: 70, calm: 55, social: 50, focus: 50,
+  money: 340, hobby: 0, notifs: 3,
+  aiMode: false, aiTimer: null,
+};
+
+const TIMES = ["EARLY MORNING","COMMUTE","WORKDAY","EVENING","LATE NIGHT","3AM SCROLLING"];
+
+const tools = {
+  work:     '<rect x="140" y="118" width="30" height="20" rx="2" fill="#20242b" stroke="#4c8bf5" stroke-width="1"/><rect x="143" y="121" width="24" height="14" fill="#0e1116"/>',
+  takeout:  '<path d="M138 118 L162 118 L159 140 L141 140 Z" fill="#e0a83e"/><rect x="136" y="112" width="28" height="7" rx="2" fill="#c98f2b"/>',
+  gym:      '<rect x="138" y="122" width="34" height="6" rx="3" fill="#888a86"/><circle cx="138" cy="125" r="8" fill="#31363f"/><circle cx="172" cy="125" r="8" fill="#31363f"/>',
+  scroll:   '<rect x="148" y="108" width="20" height="34" rx="4" fill="#0e1116" stroke="#4c8bf5" stroke-width="1.5"/><rect x="151" y="112" width="14" height="24" fill="#1a3a6b"/>',
+  call:     '<circle cx="158" cy="118" r="9" fill="#4f9c8a"/><path d="M154 118 q4 -6 8 0 q-4 6 -8 0" fill="#eef0f1"/>',
+  sleep:    '',
+  meditate: '',
+  hustle:   '<rect x="140" y="106" width="8" height="34" rx="3" fill="#7a5236"/><ellipse cx="158" cy="112" rx="14" ry="9" fill="#4a3423"/>',
+};
+
+const ACTIONS = {
+  work: {
+    icon:"💻", label:"Work",
+    effect:()=>({hunger:-6, energy:-18, calm:-10, focus:+8, money:+45}),
+    lines:[
+      "Back-to-back meetings that could have been emails.",
+      "He grinds through a spreadsheet that fights back the whole way.",
+      "Deep work hours — headphones on, Slack muted."
+    ],
+    eventChance:0.2,
+    events:[
+      {chance:0.5, text:"Surprise bonus lands in the account. Nice.", effect:{money:+60, calm:+5}},
+      {chance:0.5, text:"A meeting runs 40 minutes long with zero decisions made.", effect:{calm:-10, energy:-6}},
+    ],
+    glow:'screen'
+  },
+  takeout: {
+    icon:"🥡", label:"Order food",
+    effect:()=>({hunger:+32, energy:-2, money:-22}),
+    lines:[
+      "Pad thai arrives lukewarm but deeply satisfying.",
+      "He orders the usual. The app already knows.",
+      "A burrito the size of a forearm. Worth it."
+    ],
+    eventChance:0.15,
+    events:[
+      {chance:1, text:"Delivery fee, service fee, and a fee for the fee. Ouch.", effect:{money:-12}},
+    ]
+  },
+  gym: {
+    icon:"🏋️", label:"Hit the gym",
+    effect:()=>({hunger:-10, energy:-14, calm:+14, focus:+6}),
+    lines:[
+      "Forty-five minutes of controlled suffering. He feels great after.",
+      "New personal best on the bench — he'll mention it later, unprompted.",
+      "Cardio, weights, protein shake. The trinity."
+    ],
+    eventChance:0.15,
+    events:[
+      {chance:1, text:"He tweaks something in his lower back reaching for his water bottle.", effect:{energy:-8, calm:-5}},
+    ]
+  },
+  scroll: {
+    icon:"📱", label:"Doomscroll",
+    effect:()=>({energy:-10, calm:+10, social:-4}),
+    lines:[
+      "Forty-five seconds turns into forty-five minutes.",
+      "A stranger's opinion about something that doesn't affect him at all.",
+      "He likes a post from someone he hasn't spoken to since 2019."
+    ],
+    eventChance:0.3,
+    events:[
+      {chance:0.5, text:"He falls into a three-hour rabbit hole about a conspiracy he'll forget by morning.", effect:{calm:-18, energy:-10}},
+      {chance:0.5, text:"He actually finds a genuinely useful life hack. Miracles happen.", effect:{focus:+6}},
+    ],
+    glow:'screen'
+  },
+  call: {
+    icon:"🎧", label:"Call a friend",
+    effect:()=>({energy:-6, social:+24, calm:+6}),
+    lines:[
+      "An hour disappears talking about nothing in particular.",
+      "They rehash the same three jokes from college. Still funny.",
+      "He actually picks up instead of letting it go to voicemail."
+    ],
+    eventChance:0.12,
+    events:[
+      {chance:1, text:"A friend talks him into a weekend trip. Already regretting agreeing, already excited.", effect:{social:+10, money:-20}},
+    ]
+  },
+  sleep: {
+    icon:"💤", label:"Sleep",
+    effect:()=>({energy:+32, hunger:-6, calm:+6}),
+    lines:[
+      "Lights off at a reasonable hour, for once.",
+      "Eight hours, mostly uninterrupted. A miracle of modern living.",
+      "He actually dreams about something other than Slack notifications."
+    ],
+    eventChance:0.1,
+    events:[
+      {chance:1, text:"The upstairs neighbor starts vacuuming at 6:45am sharp.", effect:{energy:-8, calm:-6}},
+    ]
+  },
+  meditate: {
+    icon:"🧘", label:"Meditate",
+    effect:()=>({energy:-4, calm:+24, focus:+4}),
+    lines:[
+      "Ten minutes of trying very hard not to think about work.",
+      "An app voice tells him to notice his breath. He notices his phone buzzing instead.",
+      "Actual stillness, for once. It's strange how hard that is."
+    ],
+    eventChance:0.1,
+    events:[
+      {chance:1, text:"He genuinely reaches something like peace of mind. Rare.", effect:{calm:+12}},
+    ]
+  },
+  hustle: {
+    icon:"🎸", label:"Side hustle",
+    effect:()=>({energy:-14, focus:+4, hobby:+1, money:+15}),
+    lines:[
+      "An hour on the passion project that might become something someday.",
+      "He records a rough demo track at midnight, headphones on.",
+      "Another small commit to the app nobody's asked for yet."
+    ],
+    eventChance:0.15,
+    events:[
+      {chance:0.5, text:"A post about the side project actually gets some traction. Interesting.", effect:{money:+35, social:+6}},
+      {chance:0.5, text:"A client pays two weeks late. Again.", effect:{money:-10, calm:-6}},
+    ]
+  },
+};
+
+// ---------------- helpers ----------------
+function clamp(v){return Math.max(0, Math.min(100, v));}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+
+function addLog(text, cls){
+  const box = document.getElementById('logBox');
+  const div = document.createElement('div');
+  div.className = 'log-entry' + (cls ? ' '+cls : '');
+  div.innerHTML = '<b>Day '+state.day+'</b> · '+text;
+  box.insertBefore(div, box.firstChild);
+}
+
+function updateBars(){
+  ['hunger','energy','calm','social','focus'].forEach(key=>{
+    document.getElementById(key+'Val').textContent = Math.round(state[key]);
+    document.getElementById(key+'Bar').style.width = state[key]+'%';
+  });
+  document.getElementById('hobbyVal').textContent = state.hobby;
+  document.getElementById('notifVal').textContent = state.notifs;
+  document.getElementById('moneyVal').textContent = '$'+state.money;
+  document.getElementById('dayCount').textContent = state.day;
+  document.getElementById('timeOfDay').textContent = TIMES[state.tick % TIMES.length];
+  const nb = document.getElementById('notifBadge');
+  nb.textContent = state.notifs > 0 ? state.notifs+' new' : '';
+  nb.classList.toggle('show', state.notifs > 0);
+}
+
+function setBadgeAndTool(key){
+  const a = ACTIONS[key];
+  document.getElementById('badgeIcon').textContent = a.icon;
+  document.getElementById('badgeText').textContent = a.label;
+  document.getElementById('toolItem').innerHTML = tools[key] || '';
+  document.getElementById('screenGlow').classList.toggle('active', a.glow === 'screen');
+  const fig = document.getElementById('manFigure');
+  fig.classList.remove('bump'); void fig.offsetWidth; fig.classList.add('bump');
+}
+
+function applyEffects(effect){
+  for(const k in effect){
+    if(k==='hobby'){ state.hobby += effect[k]; continue; }
+    if(k==='money'){ state.money += effect[k]; continue; }
+    state[k] = clamp(state[k] + effect[k]);
+  }
+}
+
+function passiveDecay(){
+  state.hunger = clamp(state.hunger - 3);
+  state.energy = clamp(state.energy - 2);
+  state.calm   = clamp(state.calm - 3);
+  state.social = clamp(state.social - 2);
+  if(Math.random() < 0.4) state.notifs++;
+  state.tick++;
+  if(state.tick % TIMES.length === 0) state.day++;
+}
+
+function crisisCheck(){
+  if(state.hunger <= 5){ addLog("His stomach is loudly reminding him lunch was hours ago.", 'event'); }
+  if(state.energy <= 5){ addLog("He's running on fumes and lukewarm coffee.", 'event'); }
+  if(state.calm <= 5){ addLog("Everything feels like slightly too much right now.", 'event'); }
+  if(state.social <= 5){ addLog("He realizes he hasn't spoken to another human out loud in two days.", 'event'); }
+  if(state.money < 0){ addLog("The account dips into the red. Not great.", 'event'); }
+}
+
+function performAction(key, isAI){
+  const a = ACTIONS[key];
+  setBadgeAndTool(key);
+  const eff = a.effect();
+  applyEffects(eff);
+  if(key==='call' || key==='meditate') state.notifs = Math.max(0, state.notifs - Math.floor(Math.random()*2));
+  passiveDecay();
+
+  let line = pick(a.lines);
+  addLog((isAI ? '🤖 Autopilot: ' : '') + line, isAI ? 'ai' : (eff.money ? 'money' : null));
+
+  if(Math.random() < a.eventChance){
+    const ev = pick(a.events);
+    applyEffects(ev.effect);
+    addLog(ev.text, 'event');
+  }
+
+  document.getElementById('thoughtText').textContent = line;
+  crisisCheck();
+  updateBars();
+}
+
+// ---------------- manual controls ----------------
+document.querySelectorAll('#actionsGrid .act').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if(state.aiMode) return;
+    performAction(btn.dataset.action, false);
+  });
+});
+
+// ---------------- Autopilot ----------------
+function aiDecide(){
+  let worstKey = 'hunger', worstVal = state.hunger;
+  ['energy','calm','social'].forEach(k=>{
+    if(state[k] < worstVal){ worstVal = state[k]; worstKey = k; }
+  });
+
+  let chosen;
+  if(worstVal > 65){
+    chosen = pick(['hustle','gym','scroll']);
+  } else if(worstKey==='hunger'){
+    chosen = 'takeout';
+  } else if(worstKey==='energy'){
+    chosen = 'sleep';
+  } else if(worstKey==='calm'){
+    chosen = Math.random()<0.5 ? 'meditate' : 'scroll';
+  } else {
+    chosen = 'call';
+  }
+  performAction(chosen, true);
+}
+
+function toggleAI(){
+  state.aiMode = !state.aiMode;
+  const el = document.getElementById('aiToggle');
+  el.classList.toggle('on', state.aiMode);
+  document.querySelectorAll('#actionsGrid .act').forEach(b=> b.disabled = state.aiMode);
+
+  if(state.aiMode){
+    addLog('Autopilot engaged — the algorithm takes the wheel.', 'ai');
+    aiDecide();
+    state.aiTimer = setInterval(aiDecide, 2200);
+  } else {
+    addLog('Autopilot disengaged — back in manual control.');
+    clearInterval(state.aiTimer);
+  }
+}
+
+// ---------------- init ----------------
+addLog('Dave wakes up to 3 unread messages and a to-do list that grew overnight.');
+updateBars();
+</script>
+</body>
+</html>

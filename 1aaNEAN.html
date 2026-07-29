@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UGH — A Neanderthal Simulator</title>
+<style>
+  :root{
+    --cave-black:#191510;
+    --stone:#3a332a;
+    --stone-light:#554b3c;
+    --ochre:#c17817;
+    --ochre-dim:#7a4d13;
+    --hematite:#96432e;
+    --bone:#e8ddc2;
+    --bone-dim:#c9bc9c;
+    --moss:#6b7247;
+    --ember:#e8862a;
+    --ember-glow:#ff9d3d;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(255,255,255,0.03), transparent 60%),
+      repeating-linear-gradient(115deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 2px, transparent 2px, transparent 6px),
+      var(--cave-black);
+    color:var(--bone);
+    font-family:Georgia,'Times New Roman',serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{
+    font-family:'Rockwell','Arial Black',Impact,sans-serif;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 60px;}
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;justify-content:space-between;align-items:center;
+    flex-wrap:wrap;gap:14px;
+    border-bottom:3px solid var(--stone-light);
+    padding-bottom:16px;margin-bottom:22px;
+  }
+  header .title-block h1{
+    margin:0;font-size:2.1rem;color:var(--ochre);
+    text-shadow:2px 2px 0 rgba(0,0,0,0.5);
+  }
+  header .title-block p{
+    margin:4px 0 0;color:var(--bone-dim);font-size:0.85rem;font-style:italic;
+  }
+  .day-badge{
+    font-family:'Rockwell','Arial Black',sans-serif;
+    background:var(--stone);
+    border:2px solid var(--stone-light);
+    padding:8px 16px;border-radius:4px;
+    text-align:center;min-width:110px;
+  }
+  .day-badge span{display:block;font-size:1.4rem;color:var(--ember-glow);}
+  .day-badge small{color:var(--bone-dim);font-size:0.65rem;letter-spacing:1px;}
+
+  /* AI toggle - a "bone lever" */
+  .ai-toggle{
+    display:flex;align-items:center;gap:10px;
+    background:var(--stone);border:2px solid var(--stone-light);
+    padding:8px 14px;border-radius:4px;cursor:pointer;
+    user-select:none;transition:border-color .2s;
+  }
+  .ai-toggle:hover{border-color:var(--ochre);}
+  .ai-toggle .lever{
+    width:44px;height:22px;background:var(--cave-black);
+    border-radius:11px;position:relative;border:1px solid var(--stone-light);
+    flex-shrink:0;
+  }
+  .ai-toggle .lever::after{
+    content:'';position:absolute;top:2px;left:2px;
+    width:16px;height:16px;border-radius:50%;
+    background:var(--bone-dim);transition:left .2s, background .2s;
+  }
+  .ai-toggle.on .lever{background:var(--ochre-dim);}
+  .ai-toggle.on .lever::after{left:24px;background:var(--ember-glow);box-shadow:0 0 8px var(--ember-glow);}
+  .ai-toggle .label{font-family:'Rockwell','Arial Black',sans-serif;font-size:0.8rem;}
+  .ai-toggle .label small{display:block;color:var(--bone-dim);font-size:0.6rem;font-family:Georgia,serif;text-transform:none;font-weight:normal;}
+
+  /* ---------- main grid ---------- */
+  .grid{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:20px;}
+  @media(max-width:900px){.grid{grid-template-columns:1fr;}}
+
+  .panel{
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent),var(--stone);
+    border:1px solid var(--stone-light);
+    border-radius:6px;padding:16px;
+  }
+  .panel h2{font-size:0.95rem;color:var(--ochre);margin:0 0 14px;border-bottom:1px solid var(--stone-light);padding-bottom:8px;}
+
+  /* ---------- stats ---------- */
+  .stat{margin-bottom:14px;}
+  .stat-row{display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:4px;color:var(--bone-dim);}
+  .groove{
+    height:14px;background:rgba(0,0,0,0.4);
+    border-radius:3px;overflow:hidden;
+    border:1px solid rgba(0,0,0,0.5);
+    box-shadow:inset 0 2px 3px rgba(0,0,0,0.5);
+  }
+  .fill{height:100%;transition:width .5s ease;border-radius:2px 0 0 2px;}
+  .fill.hunger{background:linear-gradient(90deg,var(--ochre-dim),var(--ochre));}
+  .fill.energy{background:linear-gradient(90deg,#3d5a3d,var(--moss));}
+  .fill.warmth{background:linear-gradient(90deg,#8a3f18,var(--ember));}
+  .fill.bond{background:linear-gradient(90deg,#6b2e22,var(--hematite));}
+  .fill.courage{background:linear-gradient(90deg,#8a8060,var(--bone-dim));}
+
+  .skill-line{font-size:0.75rem;color:var(--bone-dim);margin-top:10px;padding-top:10px;border-top:1px dashed var(--stone-light);}
+  .skill-line b{color:var(--bone);}
+
+  /* ---------- figure stage ---------- */
+  .stage{
+    position:relative;
+    background:radial-gradient(ellipse at 50% 85%, rgba(232,134,42,0.10), transparent 60%),var(--cave-black);
+    border:1px solid var(--stone-light);border-radius:6px;
+    display:flex;align-items:center;justify-content:center;
+    min-height:280px;overflow:hidden;
+  }
+  .fire-glow{
+    position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+    width:220px;height:220px;border-radius:50%;
+    background:radial-gradient(circle, rgba(255,157,61,0.35), transparent 70%);
+    opacity:0;transition:opacity .6s;
+    animation:flicker 2.4s infinite ease-in-out;
+    pointer-events:none;
+  }
+  .fire-glow.active{opacity:1;}
+  @keyframes flicker{0%,100%{transform:translateX(-50%) scale(1);}50%{transform:translateX(-48%) scale(1.06);}}
+
+  #manFigure{transition:transform .3s;}
+  #manFigure.bump{animation:bump .5s ease;}
+  @keyframes bump{0%{transform:translateY(0);}30%{transform:translateY(-6px) rotate(-2deg);}60%{transform:translateY(2px) rotate(1deg);}100%{transform:translateY(0);}}
+
+  .action-badge{
+    position:absolute;top:12px;left:12px;
+    background:var(--stone);border:1px solid var(--stone-light);
+    border-radius:4px;padding:6px 10px;font-size:0.75rem;
+    display:flex;align-items:center;gap:6px;
+  }
+  .action-badge .ic{font-size:1.1rem;}
+
+  .thought{
+    position:absolute;bottom:10px;left:0;right:0;text-align:center;
+    font-size:0.78rem;color:var(--bone-dim);font-style:italic;
+    padding:0 16px;min-height:18px;
+  }
+
+  /* ---------- actions ---------- */
+  .actions-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  button.act{
+    background:var(--cave-black);
+    border:1px solid var(--stone-light);
+    color:var(--bone);
+    padding:10px 8px;border-radius:4px;
+    font-family:'Rockwell','Arial Black',sans-serif;
+    font-size:0.72rem;letter-spacing:0.5px;text-transform:uppercase;
+    cursor:pointer;transition:background .15s, border-color .15s, transform .1s;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+  }
+  button.act .ic{font-size:1.3rem;}
+  button.act:hover:not(:disabled){border-color:var(--ochre);background:#241f18;}
+  button.act:active:not(:disabled){transform:scale(0.96);}
+  button.act:disabled{opacity:0.35;cursor:not-allowed;}
+
+  /* ---------- log ---------- */
+  .log-panel{grid-column:1/-1;margin-top:20px;}
+  .log-box{
+    height:190px;overflow-y:auto;
+    background:rgba(0,0,0,0.35);border:1px solid rgba(0,0,0,0.5);
+    border-radius:4px;padding:10px 12px;
+    font-family:'Courier New',monospace;font-size:0.78rem;
+    display:flex;flex-direction:column-reverse;
+  }
+  .log-entry{padding:3px 0;border-bottom:1px dotted rgba(255,255,255,0.06);color:var(--bone-dim);}
+  .log-entry:first-child{border-bottom:none;}
+  .log-entry.event{color:var(--ember-glow);}
+  .log-entry.ai{color:#8fb08a;}
+  .log-entry b{color:var(--bone);}
+
+  .footer-note{margin-top:18px;text-align:center;color:var(--bone-dim);font-size:0.7rem;font-style:italic;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="title-block">
+      <h1>Ugh: A Neanderthal Simulator</h1>
+      <p>Survive the ice, feed the tribe, keep the fire alive.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div class="day-badge">
+        <span id="dayCount">1</span>
+        <small id="timeOfDay">MORNING</small>
+      </div>
+      <div class="ai-toggle" id="aiToggle" onclick="toggleAI()">
+        <div class="lever"></div>
+        <div class="label">Instinct Mode<small>let him act alone</small></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- STATS -->
+    <div class="panel">
+      <h2>Condition</h2>
+      <div class="stat">
+        <div class="stat-row"><span>Hunger</span><span id="hungerVal">70</span></div>
+        <div class="groove"><div class="fill hunger" id="hungerBar" style="width:70%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Energy</span><span id="energyVal">70</span></div>
+        <div class="groove"><div class="fill energy" id="energyBar" style="width:70%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Warmth</span><span id="warmthVal">55</span></div>
+        <div class="groove"><div class="fill warmth" id="warmthBar" style="width:55%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Tribe bond</span><span id="bondVal">50</span></div>
+        <div class="groove"><div class="fill bond" id="bondBar" style="width:50%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Courage</span><span id="courageVal">50</span></div>
+        <div class="groove"><div class="fill courage" id="courageBar" style="width:50%"></div></div>
+      </div>
+      <div class="skill-line">
+        Cave art skill: <b id="artSkill">0</b> markings &nbsp;·&nbsp;
+        Fire: <b id="fireState">unlit</b>
+      </div>
+    </div>
+
+    <!-- FIGURE STAGE -->
+    <div class="panel" style="display:flex;flex-direction:column;">
+      <h2>Ogg the Neanderthal</h2>
+      <div class="stage">
+        <div class="fire-glow" id="fireGlow"></div>
+        <div class="action-badge"><span class="ic" id="badgeIcon">🧍</span><span id="badgeText">Idle</span></div>
+        <svg id="manFigure" width="180" height="220" viewBox="0 0 180 220">
+          <!-- ground shadow -->
+          <ellipse cx="90" cy="205" rx="55" ry="8" fill="rgba(0,0,0,0.4)"/>
+          <!-- legs -->
+          <rect x="70" y="150" width="14" height="50" rx="5" fill="#7a5a3a"/>
+          <rect x="96" y="150" width="14" height="50" rx="5" fill="#6b4c2f"/>
+          <!-- fur skirt -->
+          <path d="M60 145 Q90 165 120 145 L120 158 Q90 178 60 158 Z" fill="#8a6a45"/>
+          <!-- torso -->
+          <path d="M62 90 Q60 145 68 150 L112 150 Q120 145 118 90 Q90 78 62 90 Z" fill="#a9805a"/>
+          <!-- head -->
+          <ellipse cx="90" cy="55" rx="26" ry="24" fill="#c79b6e"/>
+          <!-- brow ridge -->
+          <path d="M68 47 Q90 38 112 47" stroke="#8a6440" stroke-width="6" fill="none" stroke-linecap="round"/>
+          <!-- hair -->
+          <path d="M64 45 Q60 20 90 18 Q120 20 116 45 Q108 30 90 30 Q72 30 64 45 Z" fill="#3a2a1a"/>
+          <!-- eyes -->
+          <circle cx="82" cy="55" r="2.4" fill="#191510"/>
+          <circle cx="98" cy="55" r="2.4" fill="#191510"/>
+          <!-- nose/mouth -->
+          <path d="M88 60 Q90 66 93 60" stroke="#7a5236" stroke-width="2" fill="none"/>
+          <path d="M83 70 Q90 74 97 70" stroke="#5a3c26" stroke-width="2" fill="none" stroke-linecap="round" id="mouth"/>
+          <!-- static arm -->
+          <path d="M65 95 Q45 110 48 140" stroke="#a9805a" stroke-width="13" fill="none" stroke-linecap="round"/>
+          <!-- active arm + tool group -->
+          <g id="toolArm">
+            <path d="M115 95 Q140 100 145 130" stroke="#a9805a" stroke-width="13" fill="none" stroke-linecap="round"/>
+          </g>
+          <g id="toolItem"></g>
+        </svg>
+        <div class="thought" id="thoughtText">He waits for your command.</div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="panel">
+      <h2>Actions</h2>
+      <div class="actions-grid" id="actionsGrid">
+        <button class="act" data-action="hunt"><span class="ic">🏹</span>Hunt</button>
+        <button class="act" data-action="gather"><span class="ic">🍇</span>Gather</button>
+        <button class="act" data-action="fire"><span class="ic">🔥</span>Tend fire</button>
+        <button class="act" data-action="craft"><span class="ic">🪨</span>Craft tool</button>
+        <button class="act" data-action="socialize"><span class="ic">👥</span>Socialize</button>
+        <button class="act" data-action="rest"><span class="ic">💤</span>Rest</button>
+        <button class="act" data-action="explore"><span class="ic">🧭</span>Explore</button>
+        <button class="act" data-action="paint"><span class="ic">🎨</span>Cave paint</button>
+      </div>
+    </div>
+
+    <!-- LOG -->
+    <div class="panel log-panel">
+      <h2>Tribe record (oldest markings at bottom)</h2>
+      <div class="log-box" id="logBox"></div>
+    </div>
+
+  </div>
+
+  <p class="footer-note">Every action costs a little time and a little strength. Instinct Mode lets Ogg choose for himself, tending to whatever need is most urgent.</p>
+</div>
+
+<script>
+// ---------------- state ----------------
+const state = {
+  day: 1,
+  tick: 0, // ticks within a day, drives time-of-day label
+  hunger: 70, energy: 70, warmth: 55, bond: 50, courage: 50,
+  artSkill: 0,
+  fireBuilt: false,
+  aiMode: false,
+  aiTimer: null,
+};
+
+const TIMES = ["DAWN","MORNING","MIDDAY","AFTERNOON","DUSK","NIGHT"];
+
+const tools = {
+  hunt:   '<path d="M145 130 L172 105" stroke="#3a2a1a" stroke-width="4" stroke-linecap="round"/><path d="M172 105 L165 100 M172 105 L168 113" stroke="#888" stroke-width="3" stroke-linecap="round"/>',
+  gather: '<path d="M140 120 Q150 128 148 140 Q136 145 128 136 Z" fill="#6b7247"/>',
+  fire:   '<path d="M145 130 L160 108" stroke="#5a3c26" stroke-width="5" stroke-linecap="round"/>',
+  craft:  '<path d="M145 130 L158 112" stroke="#5a3c26" stroke-width="5" stroke-linecap="round"/><ellipse cx="160" cy="108" rx="7" ry="5" fill="#888a86"/>',
+  socialize: '',
+  rest: '',
+  explore: '<path d="M145 130 L165 118" stroke="#5a3c26" stroke-width="5" stroke-linecap="round"/>',
+  paint: '<path d="M145 130 L160 112" stroke="#5a3c26" stroke-width="4" stroke-linecap="round"/><circle cx="162" cy="109" r="3.5" fill="#c17817"/>',
+};
+
+const ACTIONS = {
+  hunt: {
+    icon:"🏹", label:"Hunt",
+    effect:()=>({hunger:+26, energy:-16, courage:+3}),
+    lines:[
+      "Ogg stalks a hare through the frost and brings it down.",
+      "A long chase, but the tribe eats meat tonight.",
+      "The spear flies true. Good hunting."
+    ],
+    eventChance:0.22,
+    events:[
+      {chance:0.5, text:"A young mammoth thunders past — Ogg scrambles clear, heart pounding.", effect:{courage:-8, energy:-6}},
+      {chance:0.5, text:"He surprises a whole herd of deer and returns with a rare surplus.", effect:{hunger:+15, bond:+4}},
+    ]
+  },
+  gather: {
+    icon:"🍇", label:"Gather",
+    effect:()=>({hunger:+14, energy:-8}),
+    lines:[
+      "Berries, roots, and a few bitter greens fill his basket.",
+      "He digs up tubers along the riverbank.",
+      "A patch of wild grain, still damp with dew."
+    ],
+    eventChance:0.18,
+    events:[
+      {chance:1, text:"He finds a honeycomb wedged in a dead tree — a rare sweetness.", effect:{hunger:+10, bond:+3}},
+    ]
+  },
+  fire: {
+    icon:"🔥", label:"Tend fire",
+    effect:()=>({warmth:+28, energy:-8}),
+    lines:[
+      "Sparks catch on dry moss. The fire climbs higher.",
+      "He feeds the flames with fresh kindling.",
+      "Smoke curls up through the cave mouth as the fire steadies."
+    ],
+    eventChance:0.12,
+    events:[
+      {chance:1, text:"The flame nearly dies in a gust — he cups it with both hands and saves it.", effect:{energy:-6}},
+    ],
+    onSuccess:()=>{state.fireBuilt=true;}
+  },
+  craft: {
+    icon:"🪨", label:"Craft tool",
+    effect:()=>({energy:-10, courage:+2}),
+    lines:[
+      "Flint flakes off in sharp, satisfying shards.",
+      "A hand-axe takes shape, chip by chip.",
+      "He knaps a new blade edge, testing it against his thumb."
+    ],
+    eventChance:0.15,
+    events:[
+      {chance:1, text:"The stone splits perfectly on the first strike — an unusually fine tool.", effect:{courage:+5, bond:+2}},
+    ]
+  },
+  socialize: {
+    icon:"👥", label:"Socialize",
+    effect:()=>({bond:+22, energy:-6}),
+    lines:[
+      "Grunts, gestures, and shared meat around the fire.",
+      "The tribe grooms and settles in close for warmth.",
+      "He shows a child how to strike flint just so."
+    ],
+    eventChance:0.1,
+    events:[
+      {chance:1, text:"An elder shares a story told in gestures and firelight — the tribe listens as one.", effect:{bond:+10}},
+    ]
+  },
+  rest: {
+    icon:"💤", label:"Rest",
+    effect:()=>({energy:+30, hunger:-6}),
+    lines:[
+      "Ogg curls against the cave wall and sleeps.",
+      "A short rest on a bed of dry moss and fur.",
+      "He dozes, one eye toward the cave mouth."
+    ],
+    eventChance:0.08,
+    events:[
+      {chance:1, text:"He wakes with a jolt to a distant howl, then settles back down.", effect:{courage:-4}},
+    ]
+  },
+  explore: {
+    icon:"🧭", label:"Explore",
+    effect:()=>({courage:+14, energy:-14, warmth:-6}),
+    lines:[
+      "He follows an unfamiliar ridge past the valley.",
+      "New territory, new dangers, new possibilities.",
+      "He marks a path through the pines for next time."
+    ],
+    eventChance:0.28,
+    events:[
+      {chance:0.5, text:"He finds signs of a rival tribe nearby — best to stay alert.", effect:{courage:-6, bond:-4}},
+      {chance:0.5, text:"He discovers a sheltered hollow that could make a fine new camp.", effect:{courage:+8, warmth:+5}},
+    ]
+  },
+  paint: {
+    icon:"🎨", label:"Cave paint",
+    effect:()=>({bond:+8, energy:-10, artSkill:+1}),
+    lines:[
+      "Ochre and charcoal, pressed onto stone — a bison takes shape.",
+      "He blows red pigment around his hand, leaving its print on the wall.",
+      "Lines become a running herd under torchlight."
+    ],
+    eventChance:0.1,
+    events:[
+      {chance:1, text:"The whole tribe gathers to watch the painting take shape, murmuring in approval.", effect:{bond:+8}},
+    ]
+  },
+};
+
+// ---------------- helpers ----------------
+function clamp(v){return Math.max(0, Math.min(100, v));}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+
+function addLog(text, cls){
+  const box = document.getElementById('logBox');
+  const div = document.createElement('div');
+  div.className = 'log-entry' + (cls ? ' '+cls : '');
+  div.innerHTML = '<b>Day '+state.day+'</b> · '+text;
+  box.insertBefore(div, box.firstChild);
+}
+
+function updateBars(){
+  const map = [['hunger','hunger'],['energy','energy'],['warmth','warmth'],['bond','bond'],['courage','courage']];
+  map.forEach(([key,id])=>{
+    document.getElementById(id+'Val').textContent = Math.round(state[key]);
+    document.getElementById(id+'Bar').style.width = state[key]+'%';
+  });
+  document.getElementById('artSkill').textContent = state.artSkill;
+  document.getElementById('fireState').textContent = state.fireBuilt ? 'burning' : 'unlit';
+  document.getElementById('fireGlow').classList.toggle('active', state.fireBuilt);
+  document.getElementById('dayCount').textContent = state.day;
+  document.getElementById('timeOfDay').textContent = TIMES[state.tick % TIMES.length];
+}
+
+function setBadgeAndTool(key){
+  const a = ACTIONS[key];
+  document.getElementById('badgeIcon').textContent = a.icon;
+  document.getElementById('badgeText').textContent = a.label;
+  document.getElementById('toolItem').innerHTML = tools[key] || '';
+  const fig = document.getElementById('manFigure');
+  fig.classList.remove('bump'); void fig.offsetWidth; fig.classList.add('bump');
+}
+
+function applyEffects(effect){
+  for(const k in effect){
+    if(k==='artSkill'){ state.artSkill += effect[k]; continue; }
+    state[k] = clamp(state[k] + effect[k]);
+  }
+}
+
+function passiveDecay(){
+  state.hunger = clamp(state.hunger - 3);
+  state.energy = clamp(state.energy - 2);
+  state.warmth = clamp(state.warmth - (state.fireBuilt ? 2 : 5));
+  state.bond   = clamp(state.bond - 1);
+  if(state.warmth < 15) state.fireBuilt = false;
+  state.tick++;
+  if(state.tick % TIMES.length === 0) state.day++;
+}
+
+function crisisCheck(){
+  if(state.hunger <= 5){ addLog("Ogg's stomach aches with hunger. He grows weak.", 'event'); }
+  if(state.energy <= 5){ addLog("Exhaustion drags at his limbs — he can barely stand.", 'event'); }
+  if(state.warmth <= 5){ addLog("The cold bites deep. He shivers uncontrollably.", 'event'); }
+  if(state.bond <= 5){ addLog("The tribe eyes him with quiet distrust.", 'event'); }
+}
+
+function performAction(key, isAI){
+  const a = ACTIONS[key];
+  setBadgeAndTool(key);
+  const eff = a.effect();
+  applyEffects(eff);
+  if(a.onSuccess) a.onSuccess();
+  passiveDecay();
+
+  let line = pick(a.lines);
+  addLog((isAI ? '🧠 Instinct: ' : '') + line, isAI ? 'ai' : null);
+
+  if(Math.random() < a.eventChance){
+    const ev = pick(a.events);
+    applyEffects(ev.effect);
+    addLog(ev.text, 'event');
+  }
+
+  document.getElementById('thoughtText').textContent = line;
+  crisisCheck();
+  updateBars();
+}
+
+// ---------------- manual controls ----------------
+document.querySelectorAll('#actionsGrid .act').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if(state.aiMode) return;
+    performAction(btn.dataset.action, false);
+  });
+});
+
+// ---------------- AI (instinct) mode ----------------
+function aiDecide(){
+  // weight = urgency of need; pick the action serving the lowest relevant stat
+  const needs = [
+    {stat:'hunger', action: state.hunger < 40 ? (Math.random()<0.5?'hunt':'gather') : null},
+    {stat:'warmth', action: 'fire'},
+    {stat:'energy', action: 'rest'},
+    {stat:'bond', action: 'socialize'},
+    {stat:'courage', action: 'explore'},
+  ];
+  let worstKey = 'hunger', worstVal = state.hunger;
+  ['warmth','energy','bond'].forEach(k=>{
+    if(state[k] < worstVal){ worstVal = state[k]; worstKey = k; }
+  });
+
+  let chosen;
+  if(worstVal > 65){
+    // everything comfortable — improve skills or courage
+    chosen = pick(['craft','paint','explore']);
+  } else if(worstKey==='hunger'){
+    chosen = Math.random()<0.6 ? 'hunt' : 'gather';
+  } else if(worstKey==='warmth'){
+    chosen = 'fire';
+  } else if(worstKey==='energy'){
+    chosen = 'rest';
+  } else {
+    chosen = 'socialize';
+  }
+  performAction(chosen, true);
+}
+
+function toggleAI(){
+  state.aiMode = !state.aiMode;
+  const el = document.getElementById('aiToggle');
+  el.classList.toggle('on', state.aiMode);
+  document.querySelectorAll('#actionsGrid .act').forEach(b=> b.disabled = state.aiMode);
+
+  if(state.aiMode){
+    addLog('Instinct Mode engaged — Ogg now acts on his own.', 'ai');
+    aiDecide();
+    state.aiTimer = setInterval(aiDecide, 2200);
+  } else {
+    addLog('Instinct Mode disengaged — you take the reins again.');
+    clearInterval(state.aiTimer);
+  }
+}
+
+// ---------------- init ----------------
+addLog('Ogg wakes in the cave mouth as grey light creeps over the valley.');
+updateBars();
+</script>
+</body>
+</html>

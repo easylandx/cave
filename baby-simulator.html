@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COO — A Baby Simulator</title>
+<style>
+  :root{
+    --cream:#fdf6ec;
+    --card:#ffffff;
+    --pink:#f6b8c4;
+    --pink-deep:#e8899b;
+    --blue:#a8d8ea;
+    --blue-deep:#6fb3cf;
+    --mint:#b8e6d0;
+    --mint-deep:#77c6a3;
+    --lav:#d9c7f0;
+    --lav-deep:#b294dd;
+    --peach:#f3c9a6;
+    --ink:#5a4a42;
+    --ink-soft:#9c8d84;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;
+    background:
+      radial-gradient(circle at 15% 10%, rgba(246,184,196,0.25), transparent 45%),
+      radial-gradient(circle at 85% 15%, rgba(168,216,234,0.25), transparent 45%),
+      radial-gradient(circle at 50% 90%, rgba(184,230,208,0.25), transparent 50%),
+      var(--cream);
+    color:var(--ink);
+    font-family:Verdana,Geneva,sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,.display{
+    font-family:'Comic Sans MS','Chalkboard SE',cursive;
+    font-weight:700;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 60px;}
+
+  header{
+    display:flex;justify-content:space-between;align-items:center;
+    flex-wrap:wrap;gap:14px;
+    border-bottom:3px dashed var(--pink);
+    padding-bottom:16px;margin-bottom:22px;
+  }
+  header .title-block h1{margin:0;font-size:2rem;color:var(--pink-deep);}
+  header .title-block p{margin:4px 0 0;color:var(--ink-soft);font-size:0.85rem;}
+
+  .day-badge, .giggle-badge{
+    background:var(--card);border:2px solid var(--blue);
+    padding:8px 16px;border-radius:16px;text-align:center;min-width:130px;
+    box-shadow:0 3px 0 rgba(0,0,0,0.05);
+  }
+  .day-badge span{display:block;font-size:1.3rem;color:var(--blue-deep);font-weight:700;font-family:'Comic Sans MS',cursive;}
+  .day-badge small{color:var(--ink-soft);font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;}
+  .giggle-badge{border-color:var(--mint);}
+  .giggle-badge span{display:block;font-size:1.3rem;color:var(--mint-deep);font-weight:700;font-family:'Comic Sans MS',cursive;}
+  .giggle-badge small{color:var(--ink-soft);font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;}
+
+  /* Nanny Mode toggle */
+  .ai-toggle{
+    display:flex;align-items:center;gap:10px;
+    background:var(--card);border:2px solid var(--lav);
+    padding:8px 14px;border-radius:16px;cursor:pointer;user-select:none;
+    box-shadow:0 3px 0 rgba(0,0,0,0.05);
+    transition:border-color .2s;
+  }
+  .ai-toggle:hover{border-color:var(--lav-deep);}
+  .ai-toggle .lever{
+    width:46px;height:24px;background:#eee3fb;border-radius:12px;
+    position:relative;flex-shrink:0;transition:background .2s;
+  }
+  .ai-toggle .lever::after{
+    content:'🌙';font-size:11px;display:flex;align-items:center;justify-content:center;
+    position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;
+    background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);
+  }
+  .ai-toggle.on .lever{background:var(--lav);}
+  .ai-toggle.on .lever::after{left:24px;}
+  .ai-toggle .label{font-family:'Comic Sans MS',cursive;font-size:0.78rem;font-weight:700;color:var(--ink);}
+  .ai-toggle .label small{display:block;color:var(--ink-soft);font-size:0.6rem;font-weight:normal;font-family:Verdana,sans-serif;}
+
+  .grid{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:20px;}
+  @media(max-width:900px){.grid{grid-template-columns:1fr;}}
+
+  .panel{
+    background:var(--card);border:2px solid rgba(0,0,0,0.04);
+    border-radius:18px;padding:16px;
+    box-shadow:0 4px 0 rgba(0,0,0,0.04);
+  }
+  .panel h2{font-size:0.85rem;color:var(--pink-deep);margin:0 0 14px;
+    border-bottom:2px dashed #f0dfe3;padding-bottom:8px;
+    font-family:'Comic Sans MS',cursive;}
+
+  .stat{margin-bottom:14px;}
+  .stat-row{display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:4px;color:var(--ink-soft);}
+  .groove{height:13px;background:#f2ede6;border-radius:8px;overflow:hidden;}
+  .fill{height:100%;transition:width .5s ease;border-radius:8px;}
+  .fill.hunger{background:linear-gradient(90deg,var(--peach),#f0a868);}
+  .fill.sleep{background:linear-gradient(90deg,var(--lav),var(--lav-deep));}
+  .fill.comfort{background:linear-gradient(90deg,var(--mint),var(--mint-deep));}
+  .fill.affection{background:linear-gradient(90deg,var(--pink),var(--pink-deep));}
+  .fill.stim{background:linear-gradient(90deg,var(--blue),var(--blue-deep));}
+
+  .skill-line{font-size:0.75rem;color:var(--ink-soft);margin-top:10px;padding-top:10px;border-top:1px dashed #eee2d8;}
+  .skill-line b{color:var(--ink);}
+
+  .stage{
+    position:relative;
+    background:linear-gradient(180deg, #fff, #fdf6ec);
+    border:2px dashed var(--blue);border-radius:18px;
+    display:flex;align-items:center;justify-content:center;
+    min-height:280px;overflow:hidden;
+  }
+  #babyFigure{transition:transform .3s;}
+  #babyFigure.bump{animation:bump .5s ease;}
+  @keyframes bump{0%{transform:translateY(0);}30%{transform:translateY(-6px) rotate(-2deg);}60%{transform:translateY(2px) rotate(1deg);}100%{transform:translateY(0);}}
+
+  .action-badge{
+    position:absolute;top:12px;left:12px;
+    background:var(--card);border:2px solid var(--pink);
+    border-radius:14px;padding:6px 10px;font-size:0.75rem;
+    display:flex;align-items:center;gap:6px;
+  }
+  .action-badge .ic{font-size:1.1rem;}
+
+  .mood-badge{
+    position:absolute;top:12px;right:12px;
+    background:var(--card);border:2px solid var(--mint);
+    border-radius:14px;padding:6px 12px;font-size:0.75rem;font-weight:700;
+    color:var(--ink);font-family:'Comic Sans MS',cursive;
+  }
+
+  .thought{
+    position:absolute;bottom:10px;left:0;right:0;text-align:center;
+    font-size:0.78rem;color:var(--ink-soft);padding:0 16px;min-height:18px;
+  }
+
+  .actions-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  button.act{
+    background:#fff;border:2px solid #f0e6da;color:var(--ink);
+    padding:10px 8px;border-radius:14px;
+    font-family:'Comic Sans MS',cursive;font-size:0.7rem;font-weight:700;
+    cursor:pointer;transition:background .15s, border-color .15s, transform .1s;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    box-shadow:0 3px 0 rgba(0,0,0,0.04);
+  }
+  button.act .ic{font-size:1.4rem;}
+  button.act:hover:not(:disabled){border-color:var(--pink-deep);background:#fff8f9;}
+  button.act:active:not(:disabled){transform:scale(0.96);}
+  button.act:disabled{opacity:0.35;cursor:not-allowed;}
+
+  .log-panel{grid-column:1/-1;margin-top:20px;}
+  .log-box{
+    height:190px;overflow-y:auto;background:#fffdf9;border:2px dashed #f0e6da;
+    border-radius:14px;padding:10px 14px;
+    font-family:Verdana,sans-serif;font-size:0.78rem;
+    display:flex;flex-direction:column-reverse;
+  }
+  .log-entry{padding:4px 0;border-bottom:1px dotted #f0e6da;color:var(--ink-soft);}
+  .log-entry:first-child{border-bottom:none;}
+  .log-entry.event{color:var(--pink-deep);}
+  .log-entry.ai{color:var(--lav-deep);}
+  .log-entry.milestone{color:var(--mint-deep);font-weight:bold;}
+  .log-entry b{color:var(--ink);}
+
+  .footer-note{margin-top:18px;text-align:center;color:var(--ink-soft);font-size:0.7rem;font-style:italic;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="title-block">
+      <h1>Coo: A Baby Simulator</h1>
+      <p>Feed, soothe, play, and survive the witching hour.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <div class="day-badge"><span id="dayCount">1</span><small id="timeOfDay">MORNING WAKE-UP</small></div>
+      <div class="giggle-badge"><span id="giggleVal">0</span><small>giggles counted</small></div>
+      <div class="ai-toggle" id="aiToggle" onclick="toggleAI()">
+        <div class="lever"></div>
+        <div class="label">Nanny Mode<small>let instinct take over</small></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- STATS -->
+    <div class="panel">
+      <h2>How baby's doing</h2>
+      <div class="stat">
+        <div class="stat-row"><span>Hunger</span><span id="hungerVal">70</span></div>
+        <div class="groove"><div class="fill hunger" id="hungerBar" style="width:70%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Sleep</span><span id="sleepVal">65</span></div>
+        <div class="groove"><div class="fill sleep" id="sleepBar" style="width:65%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Comfort</span><span id="comfortVal">60</span></div>
+        <div class="groove"><div class="fill comfort" id="comfortBar" style="width:60%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Affection</span><span id="affectionVal">55</span></div>
+        <div class="groove"><div class="fill affection" id="affectionBar" style="width:55%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Stimulation</span><span id="stimVal">50</span></div>
+        <div class="groove"><div class="fill stim" id="stimBar" style="width:50%"></div></div>
+      </div>
+      <div class="skill-line">
+        Milestones reached: <b id="milestoneVal">0</b> &nbsp;·&nbsp;
+        Diaper: <b id="diaperState">clean</b>
+      </div>
+    </div>
+
+    <!-- FIGURE STAGE -->
+    <div class="panel" style="display:flex;flex-direction:column;">
+      <h2>Baby Wren, 7 months</h2>
+      <div class="stage">
+        <div class="action-badge"><span class="ic" id="badgeIcon">👶</span><span id="badgeText">Idle</span></div>
+        <div class="mood-badge" id="moodBadge">😊 content</div>
+        <svg id="babyFigure" width="180" height="220" viewBox="0 0 180 220">
+          <!-- blanket nest -->
+          <ellipse cx="90" cy="185" rx="70" ry="24" fill="#eaf3fb"/>
+          <ellipse cx="90" cy="180" rx="62" ry="18" fill="#d9ebf7"/>
+          <!-- body: onesie -->
+          <ellipse cx="90" cy="150" rx="42" ry="34" fill="#f6b8c4"/>
+          <!-- feet peeking -->
+          <ellipse cx="68" cy="176" rx="10" ry="7" fill="#f3c9a6"/>
+          <ellipse cx="112" cy="176" rx="10" ry="7" fill="#f3c9a6"/>
+          <!-- static arm -->
+          <ellipse cx="55" cy="140" rx="9" ry="16" fill="#f6b8c4" transform="rotate(-20 55 140)"/>
+          <!-- active arm + item -->
+          <g id="toolArm">
+            <ellipse cx="125" cy="140" rx="9" ry="16" fill="#f6b8c4" transform="rotate(20 125 140)"/>
+          </g>
+          <g id="toolItem"></g>
+          <!-- head -->
+          <ellipse cx="90" cy="98" rx="38" ry="34" fill="#f3c9a6"/>
+          <!-- wispy hair -->
+          <path d="M75 68 Q90 60 105 68" stroke="#8a6a4a" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M85 64 Q90 56 95 64" stroke="#8a6a4a" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <!-- cheeks -->
+          <circle cx="68" cy="104" r="7" fill="#f6b8c4" opacity="0.6"/>
+          <circle cx="112" cy="104" r="7" fill="#f6b8c4" opacity="0.6"/>
+          <!-- eyes -->
+          <circle cx="76" cy="96" r="4" fill="#5a4a42" id="eyeL"/>
+          <circle cx="104" cy="96" r="4" fill="#5a4a42" id="eyeR"/>
+          <!-- mouth (mood-reactive) -->
+          <path d="M78 114 Q90 122 102 114" stroke="#c17a5a" stroke-width="3" fill="none" stroke-linecap="round" id="mouth"/>
+          <!-- tears (hidden unless crying) -->
+          <path d="M74 100 L71 110" stroke="#a8d8ea" stroke-width="3" fill="none" stroke-linecap="round" id="tearL" opacity="0"/>
+          <path d="M106 100 L109 110" stroke="#a8d8ea" stroke-width="3" fill="none" stroke-linecap="round" id="tearR" opacity="0"/>
+        </svg>
+        <div class="thought" id="thoughtText">Baby Wren blinks awake, deciding how she feels about all this.</div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="panel">
+      <h2>Actions</h2>
+      <div class="actions-grid" id="actionsGrid">
+        <button class="act" data-action="feed"><span class="ic">🍼</span>Feed</button>
+        <button class="act" data-action="diaper"><span class="ic">🧷</span>Change diaper</button>
+        <button class="act" data-action="nap"><span class="ic">😴</span>Rock to sleep</button>
+        <button class="act" data-action="play"><span class="ic">🧸</span>Play</button>
+        <button class="act" data-action="cuddle"><span class="ic">🤱</span>Cuddle</button>
+        <button class="act" data-action="lullaby"><span class="ic">🎵</span>Sing lullaby</button>
+        <button class="act" data-action="tummy"><span class="ic">🐣</span>Tummy time</button>
+        <button class="act" data-action="bath"><span class="ic">🛁</span>Bath time</button>
+      </div>
+    </div>
+
+    <!-- LOG -->
+    <div class="panel log-panel">
+      <h2>Baby journal</h2>
+      <div class="log-box" id="logBox"></div>
+    </div>
+
+  </div>
+
+  <p class="footer-note">Every little act takes time and energy. Nanny Mode lets baby's needs get met on their own, tending to whatever's most urgent first.</p>
+</div>
+
+<script>
+// ---------------- state ----------------
+const state = {
+  day: 1, tick: 0,
+  hunger: 70, sleep: 65, comfort: 60, affection: 55, stim: 50,
+  milestones: 0, giggles: 0, diaperDirty: false,
+  aiMode: false, aiTimer: null,
+};
+
+const TIMES = ["MORNING WAKE-UP","NAP WINDOW","AFTERNOON PLAY","WITCHING HOUR","BEDTIME ROUTINE","MIDNIGHT WAKE-UP"];
+
+const tools = {
+  feed:    '<rect x="132" y="112" width="10" height="26" rx="3" fill="#eaf3fb" stroke="#a8d8ea" stroke-width="1.5"/><rect x="130" y="106" width="14" height="8" rx="3" fill="#f3c9a6"/>',
+  diaper:  '<path d="M128 120 Q140 118 146 128" stroke="#f6b8c4" stroke-width="6" fill="none" stroke-linecap="round"/>',
+  nap:     '',
+  play:    '<circle cx="140" cy="118" r="10" fill="#b8e6d0"/><circle cx="136" cy="114" r="2" fill="#5a4a42"/><circle cx="144" cy="114" r="2" fill="#5a4a42"/>',
+  cuddle:  '',
+  lullaby: '<circle cx="140" cy="110" r="3" fill="#d9c7f0"/><circle cx="148" cy="118" r="2.4" fill="#d9c7f0"/><circle cx="135" cy="120" r="2" fill="#d9c7f0"/>',
+  tummy:   '',
+  bath:    '<path d="M122 130 Q140 138 150 128" stroke="#a8d8ea" stroke-width="8" fill="none" stroke-linecap="round"/><ellipse cx="140" cy="118" rx="8" ry="6" fill="#f6d35a"/>',
+};
+
+const ACTIONS = {
+  feed: {
+    icon:"🍼", label:"Feed",
+    effect:()=>({hunger:+30, comfort:+4}),
+    lines:[
+      "Baby Wren drains the bottle like it's a competitive sport.",
+      "A few slow sips, then she settles into a steady rhythm.",
+      "Milk everywhere except entirely in her mouth, somehow."
+    ],
+    eventChance:0.2,
+    events:[
+      {chance:0.5, text:"A dramatic spit-up right onto your shoulder. Classic.", effect:{comfort:-8}},
+      {chance:0.5, text:"She finishes the whole bottle and gives a satisfied little sigh.", effect:{affection:+6}},
+    ]
+  },
+  diaper: {
+    icon:"🧷", label:"Change diaper",
+    effect:()=>({comfort:+28}),
+    lines:[
+      "Quick change, fresh diaper, crisis averted.",
+      "She kicks her legs the entire time, unhelpfully.",
+      "A new diaper and a small round of applause, mostly self-directed."
+    ],
+    eventChance:0.15,
+    events:[
+      {chance:1, text:"A blowout that reaches places blowouts shouldn't reach.", effect:{comfort:-10, stim:-4}},
+    ],
+    onSuccess:()=>{state.diaperDirty=false;}
+  },
+  nap: {
+    icon:"😴", label:"Rock to sleep",
+    effect:()=>({sleep:+30, hunger:-4}),
+    lines:[
+      "A slow rock by the window and her eyelids finally give up the fight.",
+      "White noise, dim lights, and thirty seconds of pure stillness.",
+      "She fights the nap for exactly as long as physically possible, then loses."
+    ],
+    eventChance:0.18,
+    events:[
+      {chance:0.5, text:"She startles awake the second she touches the crib mattress.", effect:{sleep:-14, affection:-4}},
+      {chance:0.5, text:"A real, honest, forty-minute nap. A small miracle.", effect:{sleep:+16}},
+    ]
+  },
+  play: {
+    icon:"🧸", label:"Play",
+    effect:()=>({stim:+22, affection:+6, sleep:-6}),
+    lines:[
+      "Peekaboo, over and over, each time apparently a brand-new surprise.",
+      "She bangs two rattles together with total conviction.",
+      "A stuffed rabbit gets thoroughly, enthusiastically gummed."
+    ],
+    eventChance:0.22,
+    events:[
+      {chance:0.5, text:"A genuine, full-body giggle at absolutely nothing in particular.", effect:{affection:+8}},
+      {chance:0.5, text:"Too much excitement too fast — she gets overstimulated and fusses.", effect:{stim:-10, comfort:-6}},
+    ]
+  },
+  cuddle: {
+    icon:"🤱", label:"Cuddle",
+    effect:()=>({affection:+26, comfort:+8}),
+    lines:[
+      "She melts into your shoulder, one fist gripping your shirt.",
+      "A slow, warm, entirely wordless conversation.",
+      "Her whole hand wraps around one of your fingers."
+    ],
+    eventChance:0.15,
+    events:[
+      {chance:1, text:"She falls asleep mid-cuddle, dead weight and completely content.", effect:{sleep:+10}},
+    ]
+  },
+  lullaby: {
+    icon:"🎵", label:"Sing lullaby",
+    effect:()=>({sleep:+14, affection:+10, comfort:+4}),
+    lines:[
+      "The same three lullabies on rotation, off-key and unbothered.",
+      "She stares up, transfixed, at absolutely nothing about the singing quality.",
+      "Halfway through the second verse her breathing slows right down."
+    ],
+    eventChance:0.1,
+    events:[
+      {chance:1, text:"She babbles along on the chorus, more or less in time.", effect:{stim:+6}},
+    ]
+  },
+  tummy: {
+    icon:"🐣", label:"Tummy time",
+    effect:()=>({stim:+16, comfort:-4}),
+    lines:[
+      "Face down on the mat, working hard on that neck strength.",
+      "She pushes up on both arms, wobbling but determined.",
+      "Three minutes of tummy time, and three minutes of protest."
+    ],
+    eventChance:0.22,
+    events:[
+      {chance:0.5, text:"She rolls all the way over for the first time — a genuine milestone!", effect:{stim:+10}, milestone:true},
+      {chance:0.5, text:"She face-plants into the mat and demands to be picked up immediately.", effect:{comfort:-10, affection:-4}},
+    ]
+  },
+  bath: {
+    icon:"🛁", label:"Bath time",
+    effect:()=>({comfort:+20, stim:+8, sleep:-4}),
+    lines:[
+      "Warm water, a rubber duck, and total chaos in the best way.",
+      "She splashes with both hands, delighted by her own power.",
+      "Shampoo in one eye, minor protest, quickly forgotten."
+    ],
+    eventChance:0.15,
+    events:[
+      {chance:0.5, text:"She shrieks with joy every time the duck goes underwater.", effect:{affection:+8}},
+      {chance:0.5, text:"She absolutely hates having her hair rinsed. Everyone gets wet.", effect:{comfort:-8}},
+    ]
+  },
+};
+
+// ---------------- helpers ----------------
+function clamp(v){return Math.max(0, Math.min(100, v));}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+
+function addLog(text, cls){
+  const box = document.getElementById('logBox');
+  const div = document.createElement('div');
+  div.className = 'log-entry' + (cls ? ' '+cls : '');
+  div.innerHTML = '<b>Day '+state.day+'</b> · '+text;
+  box.insertBefore(div, box.firstChild);
+}
+
+function setMood(){
+  const avg = (state.hunger + state.sleep + state.comfort + state.affection + state.stim) / 5;
+  const mouth = document.getElementById('mouth');
+  const tearL = document.getElementById('tearL');
+  const tearR = document.getElementById('tearR');
+  const badge = document.getElementById('moodBadge');
+  if(avg >= 70){
+    mouth.setAttribute('d','M76 112 Q90 126 104 112');
+    tearL.setAttribute('opacity',0); tearR.setAttribute('opacity',0);
+    badge.textContent = '😊 content';
+  } else if(avg >= 45){
+    mouth.setAttribute('d','M78 116 Q90 119 102 116');
+    tearL.setAttribute('opacity',0); tearR.setAttribute('opacity',0);
+    badge.textContent = '😐 okay';
+  } else if(avg >= 22){
+    mouth.setAttribute('d','M78 120 Q90 111 102 120');
+    tearL.setAttribute('opacity',0); tearR.setAttribute('opacity',0);
+    badge.textContent = '😣 fussy';
+  } else {
+    mouth.setAttribute('d','M77 112 Q90 108 103 112 Q97 124 90 124 Q83 124 77 112 Z');
+    tearL.setAttribute('opacity',1); tearR.setAttribute('opacity',1);
+    badge.textContent = '😭 crying';
+  }
+}
+
+function updateBars(){
+  ['hunger','sleep','comfort','affection'].forEach(key=>{
+    document.getElementById(key+'Val').textContent = Math.round(state[key]);
+    document.getElementById(key+'Bar').style.width = state[key]+'%';
+  });
+  document.getElementById('stimVal').textContent = Math.round(state.stim);
+  document.getElementById('stimBar').style.width = state.stim+'%';
+  document.getElementById('milestoneVal').textContent = state.milestones;
+  document.getElementById('giggleVal').textContent = state.giggles;
+  document.getElementById('diaperState').textContent = state.diaperDirty ? 'needs changing' : 'clean';
+  document.getElementById('dayCount').textContent = state.day;
+  document.getElementById('timeOfDay').textContent = TIMES[state.tick % TIMES.length];
+  setMood();
+}
+
+function setBadgeAndTool(key){
+  const a = ACTIONS[key];
+  document.getElementById('badgeIcon').textContent = a.icon;
+  document.getElementById('badgeText').textContent = a.label;
+  document.getElementById('toolItem').innerHTML = tools[key] || '';
+  const fig = document.getElementById('babyFigure');
+  fig.classList.remove('bump'); void fig.offsetWidth; fig.classList.add('bump');
+}
+
+function applyEffects(effect, isMilestone){
+  for(const k in effect){
+    state[k] = clamp(state[k] + effect[k]);
+  }
+  if(isMilestone) state.milestones++;
+}
+
+function passiveDecay(){
+  state.hunger = clamp(state.hunger - 4);
+  state.sleep = clamp(state.sleep - 3);
+  state.comfort = clamp(state.comfort - 3);
+  state.affection = clamp(state.affection - 2);
+  state.stim = clamp(state.stim - 2);
+  if(Math.random() < 0.3) state.diaperDirty = true;
+  if(state.diaperDirty) state.comfort = clamp(state.comfort - 2);
+  state.tick++;
+  if(state.tick % TIMES.length === 0) state.day++;
+}
+
+function crisisCheck(){
+  if(state.hunger <= 5){ addLog("A hunger cry — the unmistakable, urgent one.", 'event'); }
+  if(state.sleep <= 5){ addLog("Overtired and overwhelmed, she can't settle at all.", 'event'); }
+  if(state.comfort <= 5){ addLog("Something's clearly bothering her — diaper, temperature, or both.", 'event'); }
+  if(state.affection <= 5){ addLog("She reaches up with both arms, wanting to be held.", 'event'); }
+  if(state.stim <= 5){ addLog("She's bored stiff and letting everyone know about it.", 'event'); }
+}
+
+function performAction(key, isAI){
+  const a = ACTIONS[key];
+  setBadgeAndTool(key);
+  const eff = a.effect();
+  applyEffects(eff);
+  if(a.onSuccess) a.onSuccess();
+  if(key==='play' || key==='cuddle' || key==='bath') state.giggles += Math.random()<0.5 ? 1 : 0;
+  passiveDecay();
+
+  let line = pick(a.lines);
+  addLog((isAI ? '🌙 Nanny Mode: ' : '') + line, isAI ? 'ai' : null);
+
+  if(Math.random() < a.eventChance){
+    const ev = pick(a.events);
+    applyEffects(ev.effect, ev.milestone);
+    addLog(ev.text, ev.milestone ? 'milestone' : 'event');
+  }
+
+  document.getElementById('thoughtText').textContent = line;
+  crisisCheck();
+  updateBars();
+}
+
+// ---------------- manual controls ----------------
+document.querySelectorAll('#actionsGrid .act').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if(state.aiMode) return;
+    performAction(btn.dataset.action, false);
+  });
+});
+
+// ---------------- Nanny Mode ----------------
+function aiDecide(){
+  if(state.diaperDirty && state.comfort < 60){
+    performAction('diaper', true);
+    return;
+  }
+  let worstKey = 'hunger', worstVal = state.hunger;
+  ['sleep','comfort','affection','stim'].forEach(k=>{
+    if(state[k] < worstVal){ worstVal = state[k]; worstKey = k; }
+  });
+
+  let chosen;
+  if(worstVal > 65){
+    chosen = pick(['play','tummy','lullaby']);
+  } else if(worstKey==='hunger'){
+    chosen = 'feed';
+  } else if(worstKey==='sleep'){
+    chosen = 'nap';
+  } else if(worstKey==='comfort'){
+    chosen = state.diaperDirty ? 'diaper' : 'bath';
+  } else if(worstKey==='affection'){
+    chosen = 'cuddle';
+  } else {
+    chosen = 'play';
+  }
+  performAction(chosen, true);
+}
+
+function toggleAI(){
+  state.aiMode = !state.aiMode;
+  const el = document.getElementById('aiToggle');
+  el.classList.toggle('on', state.aiMode);
+  document.querySelectorAll('#actionsGrid .act').forEach(b=> b.disabled = state.aiMode);
+
+  if(state.aiMode){
+    addLog('Nanny Mode engaged — baby\'s needs get handled automatically.', 'ai');
+    aiDecide();
+    state.aiTimer = setInterval(aiDecide, 2200);
+  } else {
+    addLog('Nanny Mode off — you\'re back on duty.');
+    clearInterval(state.aiTimer);
+  }
+}
+
+// ---------------- init ----------------
+addLog('Baby Wren wakes up from her morning nap, deciding how she feels about the day ahead.');
+updateBars();
+</script>
+</body>
+</html>

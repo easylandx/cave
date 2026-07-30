@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEOW — A Cat Simulator</title>
+<style>
+  :root{
+    --cream:#f7f0e3;
+    --card:#fffaf1;
+    --rug:#c1694a;
+    --rug-deep:#9c4c33;
+    --sun:#e8b23d;
+    --sun-deep:#c48f22;
+    --sage:#7a9b76;
+    --sage-deep:#587a55;
+    --charcoal:#4a3f35;
+    --ink:#4a3f35;
+    --ink-soft:#9a8b7a;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;
+    background:
+      radial-gradient(circle at 85% 5%, rgba(232,178,61,0.30), transparent 45%),
+      radial-gradient(circle at 10% 90%, rgba(193,105,74,0.15), transparent 50%),
+      var(--cream);
+    color:var(--ink);
+    font-family:'Trebuchet MS',Verdana,sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,.display{font-family:'Trebuchet MS',Verdana,sans-serif;font-weight:700;}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 60px;}
+
+  header{
+    display:flex;justify-content:space-between;align-items:center;
+    flex-wrap:wrap;gap:14px;
+    border-bottom:3px solid var(--sun);
+    padding-bottom:16px;margin-bottom:22px;
+  }
+  header .title-block h1{margin:0;font-size:2rem;color:var(--rug-deep);}
+  header .title-block p{margin:4px 0 0;color:var(--ink-soft);font-size:0.85rem;font-style:italic;}
+
+  .day-badge, .mice-badge{
+    background:var(--card);border:2px solid var(--sage);
+    padding:8px 16px;border-radius:12px;text-align:center;min-width:130px;
+    box-shadow:0 3px 0 rgba(0,0,0,0.05);
+  }
+  .day-badge span{display:block;font-size:1.3rem;color:var(--sage-deep);font-weight:700;}
+  .day-badge small{color:var(--ink-soft);font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;}
+  .mice-badge{border-color:var(--sun);}
+  .mice-badge span{display:block;font-size:1.3rem;color:var(--sun-deep);font-weight:700;}
+  .mice-badge small{color:var(--ink-soft);font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;}
+
+  /* Cat Brain toggle */
+  .ai-toggle{
+    display:flex;align-items:center;gap:10px;
+    background:var(--card);border:2px solid var(--rug);
+    padding:8px 14px;border-radius:12px;cursor:pointer;user-select:none;
+    box-shadow:0 3px 0 rgba(0,0,0,0.05);
+    transition:border-color .2s;
+  }
+  .ai-toggle:hover{border-color:var(--rug-deep);}
+  .ai-toggle .lever{
+    width:46px;height:24px;background:#f0ddd2;border-radius:12px;
+    position:relative;flex-shrink:0;transition:background .2s;
+  }
+  .ai-toggle .lever::after{
+    content:'🐾';font-size:11px;display:flex;align-items:center;justify-content:center;
+    position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;
+    background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);
+  }
+  .ai-toggle.on .lever{background:var(--rug);}
+  .ai-toggle.on .lever::after{left:24px;}
+  .ai-toggle .label{font-size:0.78rem;font-weight:700;color:var(--ink);}
+  .ai-toggle .label small{display:block;color:var(--ink-soft);font-size:0.6rem;font-weight:normal;}
+
+  .grid{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:20px;}
+  @media(max-width:900px){.grid{grid-template-columns:1fr;}}
+
+  .panel{
+    background:var(--card);border:2px solid rgba(0,0,0,0.04);
+    border-radius:16px;padding:16px;box-shadow:0 4px 0 rgba(0,0,0,0.04);
+  }
+  .panel h2{font-size:0.85rem;color:var(--rug-deep);margin:0 0 14px;
+    border-bottom:2px solid #f0e0d2;padding-bottom:8px;}
+
+  .stat{margin-bottom:14px;}
+  .stat-row{display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:4px;color:var(--ink-soft);}
+  .groove{height:13px;background:#f0e6d6;border-radius:7px;overflow:hidden;}
+  .fill{height:100%;transition:width .5s ease;border-radius:7px;}
+  .fill.hunger{background:linear-gradient(90deg,var(--sun),var(--sun-deep));}
+  .fill.energy{background:linear-gradient(90deg,#8ba98a,var(--sage-deep));}
+  .fill.affection{background:linear-gradient(90deg,var(--rug),var(--rug-deep));}
+  .fill.play{background:linear-gradient(90deg,#e0c25a,#c9992e);}
+  .fill.clean{background:linear-gradient(90deg,#a8c4d8,#6f9cb8);}
+
+  .skill-line{font-size:0.75rem;color:var(--ink-soft);margin-top:10px;padding-top:10px;border-top:1px dashed #eee0d0;}
+  .skill-line b{color:var(--ink);}
+
+  .stage{
+    position:relative;
+    background:
+      radial-gradient(ellipse at 75% 10%, rgba(232,178,61,0.25), transparent 55%),
+      linear-gradient(180deg, #fffaf1, #f7f0e3);
+    border:2px solid var(--sage);border-radius:16px;
+    display:flex;align-items:center;justify-content:center;
+    min-height:280px;overflow:hidden;
+  }
+  #catFigure{transition:transform .3s;}
+  #catFigure.bump{animation:bump .5s ease;}
+  @keyframes bump{0%{transform:translateY(0);}30%{transform:translateY(-6px) rotate(-2deg);}60%{transform:translateY(2px) rotate(1deg);}100%{transform:translateY(0);}}
+
+  .action-badge{
+    position:absolute;top:12px;left:12px;
+    background:var(--card);border:2px solid var(--rug);
+    border-radius:10px;padding:6px 10px;font-size:0.75rem;
+    display:flex;align-items:center;gap:6px;
+  }
+  .action-badge .ic{font-size:1.1rem;}
+
+  .mood-badge{
+    position:absolute;top:12px;right:12px;
+    background:var(--card);border:2px solid var(--sage);
+    border-radius:10px;padding:6px 12px;font-size:0.75rem;font-weight:700;color:var(--ink);
+  }
+
+  .thought{
+    position:absolute;bottom:10px;left:0;right:0;text-align:center;
+    font-size:0.78rem;color:var(--ink-soft);font-style:italic;padding:0 16px;min-height:18px;
+  }
+
+  .actions-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  button.act{
+    background:#fff;border:2px solid #f0e0d2;color:var(--ink);
+    padding:10px 8px;border-radius:12px;
+    font-family:'Trebuchet MS',sans-serif;font-size:0.7rem;font-weight:700;
+    text-transform:uppercase;letter-spacing:0.3px;
+    cursor:pointer;transition:background .15s, border-color .15s, transform .1s;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    box-shadow:0 3px 0 rgba(0,0,0,0.04);
+  }
+  button.act .ic{font-size:1.3rem;}
+  button.act:hover:not(:disabled){border-color:var(--rug-deep);background:#fff3ec;}
+  button.act:active:not(:disabled){transform:scale(0.96);}
+  button.act:disabled{opacity:0.35;cursor:not-allowed;}
+
+  .log-panel{grid-column:1/-1;margin-top:20px;}
+  .log-box{
+    height:190px;overflow-y:auto;background:#fffdf8;border:2px solid #f0e0d2;
+    border-radius:12px;padding:10px 14px;
+    font-family:Verdana,sans-serif;font-size:0.78rem;
+    display:flex;flex-direction:column-reverse;
+  }
+  .log-entry{padding:4px 0;border-bottom:1px dotted #f0e0d2;color:var(--ink-soft);}
+  .log-entry:first-child{border-bottom:none;}
+  .log-entry.event{color:var(--rug-deep);}
+  .log-entry.ai{color:var(--sage-deep);}
+  .log-entry.catch{color:var(--sun-deep);font-weight:bold;}
+  .log-entry b{color:var(--ink);}
+
+  .footer-note{margin-top:18px;text-align:center;color:var(--ink-soft);font-size:0.7rem;font-style:italic;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="title-block">
+      <h1>Meow: A Cat Simulator</h1>
+      <p>Feed it, pet it carefully, and accept that it is in charge.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <div class="day-badge"><span id="dayCount">1</span><small id="timeOfDay">MORNING NAP</small></div>
+      <div class="mice-badge"><span id="miceVal">0</span><small>toy mice caught</small></div>
+      <div class="ai-toggle" id="aiToggle" onclick="toggleAI()">
+        <div class="lever"></div>
+        <div class="label">Cat Brain<small>let instinct take the wheel</small></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- STATS -->
+    <div class="panel">
+      <h2>How the cat's doing</h2>
+      <div class="stat">
+        <div class="stat-row"><span>Hunger</span><span id="hungerVal">70</span></div>
+        <div class="groove"><div class="fill hunger" id="hungerBar" style="width:70%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Energy</span><span id="energyVal">60</span></div>
+        <div class="groove"><div class="fill energy" id="energyBar" style="width:60%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Affection</span><span id="affectionVal">45</span></div>
+        <div class="groove"><div class="fill affection" id="affectionBar" style="width:45%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Playfulness</span><span id="playVal">55</span></div>
+        <div class="groove"><div class="fill play" id="playBar" style="width:55%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Litter box</span><span id="cleanVal">65</span></div>
+        <div class="groove"><div class="fill clean" id="cleanBar" style="width:65%"></div></div>
+      </div>
+      <div class="skill-line">
+        Furniture casualties: <b id="casualtyVal">0</b> &nbsp;·&nbsp;
+        Currently: <b id="perchState">on the floor</b>
+      </div>
+    </div>
+
+    <!-- FIGURE STAGE -->
+    <div class="panel" style="display:flex;flex-direction:column;">
+      <h2>Biscuit, Domestic Shorthair</h2>
+      <div class="stage">
+        <div class="action-badge"><span class="ic" id="badgeIcon">🐱</span><span id="badgeText">Idle</span></div>
+        <div class="mood-badge" id="moodBadge">😌 content</div>
+        <svg id="catFigure" width="180" height="200" viewBox="0 0 180 200">
+          <!-- shadow -->
+          <ellipse cx="90" cy="178" rx="55" ry="9" fill="rgba(0,0,0,0.08)"/>
+          <!-- tail -->
+          <path d="M132 150 Q168 150 160 108" stroke="#c9a877" stroke-width="14" fill="none" stroke-linecap="round" id="tail"/>
+          <!-- body -->
+          <ellipse cx="90" cy="140" rx="46" ry="34" fill="#d9b98a"/>
+          <!-- static front leg -->
+          <ellipse cx="66" cy="168" rx="9" ry="16" fill="#d9b98a"/>
+          <!-- active paw -->
+          <g id="toolArm">
+            <ellipse cx="112" cy="168" rx="9" ry="16" fill="#d9b98a"/>
+          </g>
+          <g id="toolItem"></g>
+          <!-- head -->
+          <ellipse cx="90" cy="92" rx="36" ry="32" fill="#e0c398"/>
+          <!-- ears -->
+          <path d="M62 70 L52 38 L82 62 Z" fill="#e0c398" id="earL"/>
+          <path d="M118 70 L128 38 L98 62 Z" fill="#e0c398" id="earR"/>
+          <path d="M64 66 L58 46 L76 62 Z" fill="#f0c9c9"/>
+          <path d="M116 66 L122 46 L104 62 Z" fill="#f0c9c9"/>
+          <!-- stripes -->
+          <path d="M70 66 L74 78" stroke="#b8935f" stroke-width="3" stroke-linecap="round"/>
+          <path d="M110 66 L106 78" stroke="#b8935f" stroke-width="3" stroke-linecap="round"/>
+          <path d="M90 62 L90 74" stroke="#b8935f" stroke-width="3" stroke-linecap="round"/>
+          <!-- eyes -->
+          <ellipse cx="76" cy="92" rx="6" ry="7" fill="#7a9b76" id="eyeL"/>
+          <ellipse cx="104" cy="92" rx="6" ry="7" fill="#7a9b76" id="eyeR"/>
+          <circle cx="76" cy="92" r="2.6" fill="#241c14"/>
+          <circle cx="104" cy="92" r="2.6" fill="#241c14"/>
+          <!-- nose -->
+          <path d="M86 104 L94 104 L90 109 Z" fill="#c1694a"/>
+          <!-- mouth -->
+          <path d="M90 109 Q84 114 78 111 M90 109 Q96 114 102 111" stroke="#a8785a" stroke-width="2" fill="none" stroke-linecap="round" id="mouth"/>
+          <!-- whiskers -->
+          <path d="M60 100 L34 96 M60 105 L34 108 M120 100 L146 96 M120 105 L146 108" stroke="#c9a877" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <div class="thought" id="thoughtText">Biscuit watches you from across the room, unreadable as ever.</div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="panel">
+      <h2>Actions</h2>
+      <div class="actions-grid" id="actionsGrid">
+        <button class="act" data-action="feed"><span class="ic">🐟</span>Feed</button>
+        <button class="act" data-action="play"><span class="ic">🧶</span>Play</button>
+        <button class="act" data-action="nap"><span class="ic">💤</span>Nap</button>
+        <button class="act" data-action="pet"><span class="ic">✋</span>Pet</button>
+        <button class="act" data-action="scratch"><span class="ic">🪵</span>Scratch post</button>
+        <button class="act" data-action="litter"><span class="ic">🧹</span>Clean litter</button>
+        <button class="act" data-action="zoomies"><span class="ic">💨</span>Zoomies</button>
+        <button class="act" data-action="window"><span class="ic">🪟</span>Bird watch</button>
+      </div>
+    </div>
+
+    <!-- LOG -->
+    <div class="panel log-panel">
+      <h2>House diary</h2>
+      <div class="log-box" id="logBox"></div>
+    </div>
+
+  </div>
+
+  <p class="footer-note">Every action costs time and energy. Cat Brain lets Biscuit act entirely on impulse, chasing whatever urge is currently strongest — for better or worse.</p>
+</div>
+
+<script>
+// ---------------- state ----------------
+const state = {
+  day: 1, tick: 0,
+  hunger: 70, energy: 60, affection: 45, play: 55, clean: 65,
+  mice: 0, casualties: 0, perched: false,
+  aiMode: false, aiTimer: null,
+};
+
+const TIMES = ["MORNING NAP","SUNBEAM HOUR","AFTERNOON PATROL","DINNER DEMANDS","EVENING ZOOMIES","3AM ZOOMIES"];
+
+const tools = {
+  feed:    '<ellipse cx="140" cy="176" rx="18" ry="7" fill="#a8c4d8"/><ellipse cx="140" cy="173" rx="14" ry="4" fill="#e0c398"/>',
+  play:    '<circle cx="140" cy="164" r="9" fill="#c1694a"/><path d="M132 158 L148 170 M148 158 L132 170" stroke="#9c4c33" stroke-width="1.5"/>',
+  nap:     '',
+  pet:     '<path d="M130 158 Q140 150 150 158" stroke="#e0c398" stroke-width="8" fill="none" stroke-linecap="round"/>',
+  scratch: '<rect x="132" y="150" width="10" height="26" rx="3" fill="#a8785a"/><rect x="132" y="150" width="10" height="26" rx="3" fill="url(#none)" stroke="#8a6440" stroke-width="1"/>',
+  litter:  '<rect x="128" y="160" width="26" height="14" rx="3" fill="#e6ddc8" stroke="#c9bca0" stroke-width="1.5"/>',
+  zoomies: '<path d="M126 160 Q136 150 148 156 M120 168 Q132 160 146 166" stroke="#c9a877" stroke-width="2.5" stroke-linecap="round" fill="none"/>',
+  window:  '<rect x="126" y="146" width="30" height="30" rx="3" fill="#eaf3fb" stroke="#a8c4d8" stroke-width="2"/><path d="M141 146 L141 176 M126 161 L156 161" stroke="#a8c4d8" stroke-width="2"/>',
+};
+
+const ACTIONS = {
+  feed: {
+    icon:"🐟", label:"Feed",
+    effect:()=>({hunger:+32, affection:+2}),
+    lines:[
+      "The bowl is approached with deep suspicion, then devoured in nine seconds flat.",
+      "Kibble first, then a pointed stare demanding more.",
+      "She inhales the food like it personally wronged her."
+    ],
+    eventChance:0.18,
+    events:[
+      {chance:0.5, text:"She eats half, walks away, and yells for the other half twenty minutes later.", effect:{hunger:-8}},
+      {chance:0.5, text:"An unusually enthusiastic meal, complete with a satisfied little chirp.", effect:{affection:+6}},
+    ]
+  },
+  play: {
+    icon:"🧶", label:"Play",
+    effect:()=>({play:+24, energy:-14, affection:+3}),
+    lines:[
+      "The wand toy is stalked, ambushed, and thoroughly defeated.",
+      "Ten straight minutes of intense feather-based warfare.",
+      "She commits fully to a fake mouse that never stood a chance."
+    ],
+    eventChance:0.25,
+    events:[
+      {chance:0.5, text:"A clean, decisive pounce — the toy mouse is officially caught.", effect:{play:+8}, catch:true},
+      {chance:0.5, text:"Mid-chase, she suddenly loses all interest and walks away.", effect:{play:-6}},
+    ]
+  },
+  nap: {
+    icon:"💤", label:"Nap",
+    effect:()=>({energy:+30, hunger:-4}),
+    lines:[
+      "Fourteen hours down, ten to go. She's very committed to the schedule.",
+      "Curled into a perfect loaf, one ear still monitoring the room.",
+      "She finds a sunbeam and becomes one with it."
+    ],
+    eventChance:0.12,
+    events:[
+      {chance:1, text:"A single paw twitches mid-dream, chasing something only she can see.", effect:{play:+4}},
+    ]
+  },
+  pet: {
+    icon:"✋", label:"Pet",
+    effect:()=>({affection:+22}),
+    lines:[
+      "She headbutts your hand, demanding exactly this, right now.",
+      "A slow blink, a low purr, total detente.",
+      "She leans into it like it's the only thing she's ever wanted."
+    ],
+    eventChance:0.22,
+    events:[
+      {chance:0.5, text:"Four pets in, she suddenly grabs your hand and bites, mildly, on principle.", effect:{affection:-12, energy:-4}},
+      {chance:0.5, text:"She rolls fully onto her back, belly out, trap fully set and sprung.", effect:{affection:+10}},
+    ]
+  },
+  scratch: {
+    icon:"🪵", label:"Scratch post",
+    effect:()=>({play:+12, energy:-6}),
+    lines:[
+      "A long, deliberate stretch and scratch, claws fully extended.",
+      "The post gets thoroughly shredded, right on schedule.",
+      "She sharpens up, looking very pleased with the destruction."
+    ],
+    eventChance:0.15,
+    events:[
+      {chance:1, text:"She decides the couch arm is a better post. It was not consulted.", effect:{clean:-6}, casualty:true},
+    ]
+  },
+  litter: {
+    icon:"🧹", label:"Clean litter",
+    effect:()=>({clean:+30}),
+    lines:[
+      "Fresh litter, scooped and smoothed. She'll pretend not to notice.",
+      "A quick clean before she can lodge a complaint about it.",
+      "The box is immaculate, for about the next four hours."
+    ],
+    eventChance:0.1,
+    events:[
+      {chance:1, text:"She inspects the freshly cleaned box with great suspicion before approving.", effect:{affection:+4}},
+    ]
+  },
+  zoomies: {
+    icon:"💨", label:"Zoomies",
+    effect:()=>({play:+18, energy:-22, affection:-2}),
+    lines:[
+      "A full-speed lap of the apartment, for no reason anyone can determine.",
+      "She launches off the couch, across the hallway, and under the bed.",
+      "Sideways sprinting, ears back, completely feral for ninety seconds."
+    ],
+    eventChance:0.3,
+    events:[
+      {chance:0.5, text:"A plant gets knocked clean off the shelf mid-sprint. No regrets.", effect:{clean:-8}, casualty:true},
+      {chance:0.5, text:"She skids to a stop, looks around like nothing happened, and grooms calmly.", effect:{energy:-4}},
+    ]
+  },
+  window: {
+    icon:"🪟", label:"Bird watch",
+    effect:()=>({play:+14, affection:+4, energy:-4}),
+    lines:[
+      "Perched on the sill, tail flicking, fully absorbed in the outside world.",
+      "A squirrel crosses the yard and the whole session gets very serious.",
+      "She chatters quietly at a bird that will never know how close it came."
+    ],
+    eventChance:0.15,
+    events:[
+      {chance:1, text:"A bird lands right on the sill — she nearly goes through the glass.", effect:{play:+10, energy:-6}},
+    ],
+    onSuccess:()=>{state.perched=true;}
+  },
+};
+
+// ---------------- helpers ----------------
+function clamp(v){return Math.max(0, Math.min(100, v));}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+
+function addLog(text, cls){
+  const box = document.getElementById('logBox');
+  const div = document.createElement('div');
+  div.className = 'log-entry' + (cls ? ' '+cls : '');
+  div.innerHTML = '<b>Day '+state.day+'</b> · '+text;
+  box.insertBefore(div, box.firstChild);
+}
+
+function setMood(){
+  const avg = (state.hunger + state.energy + state.affection + state.play + state.clean) / 5;
+  const mouth = document.getElementById('mouth');
+  const earL = document.getElementById('earL');
+  const earR = document.getElementById('earR');
+  const tail = document.getElementById('tail');
+  const badge = document.getElementById('moodBadge');
+  if(avg >= 70){
+    mouth.setAttribute('d','M90 109 Q84 113 79 110 M90 109 Q96 113 101 110');
+    earL.setAttribute('transform','rotate(0)'); earR.setAttribute('transform','rotate(0)');
+    tail.setAttribute('d','M132 150 Q168 150 160 108');
+    badge.textContent = '😌 content';
+  } else if(avg >= 45){
+    mouth.setAttribute('d','M90 109 Q84 114 78 111 M90 109 Q96 114 102 111');
+    earL.setAttribute('transform','rotate(0)'); earR.setAttribute('transform','rotate(0)');
+    tail.setAttribute('d','M132 150 Q166 145 158 112');
+    badge.textContent = '🙂 curious';
+  } else if(avg >= 22){
+    mouth.setAttribute('d','M80 111 L100 111');
+    earL.setAttribute('transform','rotate(-15 62 70)'); earR.setAttribute('transform','rotate(15 118 70)');
+    tail.setAttribute('d','M132 150 Q160 140 156 118');
+    badge.textContent = '😠 annoyed';
+  } else {
+    mouth.setAttribute('d','M80 113 Q90 106 100 113');
+    earL.setAttribute('transform','rotate(-28 62 70)'); earR.setAttribute('transform','rotate(28 118 70)');
+    tail.setAttribute('d','M132 150 Q150 130 138 108');
+    badge.textContent = '🙀 hissing';
+  }
+}
+
+function updateBars(){
+  document.getElementById('hungerVal').textContent = Math.round(state.hunger);
+  document.getElementById('hungerBar').style.width = state.hunger+'%';
+  document.getElementById('energyVal').textContent = Math.round(state.energy);
+  document.getElementById('energyBar').style.width = state.energy+'%';
+  document.getElementById('affectionVal').textContent = Math.round(state.affection);
+  document.getElementById('affectionBar').style.width = state.affection+'%';
+  document.getElementById('playVal').textContent = Math.round(state.play);
+  document.getElementById('playBar').style.width = state.play+'%';
+  document.getElementById('cleanVal').textContent = Math.round(state.clean);
+  document.getElementById('cleanBar').style.width = state.clean+'%';
+  document.getElementById('miceVal').textContent = state.mice;
+  document.getElementById('casualtyVal').textContent = state.casualties;
+  document.getElementById('perchState').textContent = state.perched ? 'on the windowsill' : 'on the floor';
+  document.getElementById('dayCount').textContent = state.day;
+  document.getElementById('timeOfDay').textContent = TIMES[state.tick % TIMES.length];
+  setMood();
+}
+
+function setBadgeAndTool(key){
+  const a = ACTIONS[key];
+  document.getElementById('badgeIcon').textContent = a.icon;
+  document.getElementById('badgeText').textContent = a.label;
+  document.getElementById('toolItem').innerHTML = tools[key] || '';
+  if(key !== 'window') state.perched = false;
+  const fig = document.getElementById('catFigure');
+  fig.classList.remove('bump'); void fig.offsetWidth; fig.classList.add('bump');
+}
+
+function applyEffects(effect, isCatch, isCasualty){
+  for(const k in effect){
+    state[k] = clamp(state[k] + effect[k]);
+  }
+  if(isCatch) state.mice++;
+  if(isCasualty) state.casualties++;
+}
+
+function passiveDecay(){
+  state.hunger = clamp(state.hunger - 3);
+  state.energy = clamp(state.energy - 2);
+  state.affection = clamp(state.affection - 2);
+  state.play = clamp(state.play - 3);
+  state.clean = clamp(state.clean - 2);
+  state.tick++;
+  if(state.tick % TIMES.length === 0) state.day++;
+}
+
+function crisisCheck(){
+  if(state.hunger <= 5){ addLog("She sits directly on the empty bowl, staring at you meaningfully.", 'event'); }
+  if(state.energy <= 5){ addLog("Even she seems too tired for her usual chaos.", 'event'); }
+  if(state.affection <= 5){ addLog("She keeps her distance, unimpressed with the general situation.", 'event'); }
+  if(state.play <= 5){ addLog("Deeply, dramatically bored. Something is going to get knocked over.", 'event'); }
+  if(state.clean <= 5){ addLog("The litter box situation has become a real problem.", 'event'); }
+}
+
+function performAction(key, isAI){
+  const a = ACTIONS[key];
+  setBadgeAndTool(key);
+  const eff = a.effect();
+  applyEffects(eff);
+  if(a.onSuccess) a.onSuccess();
+  passiveDecay();
+
+  let line = pick(a.lines);
+  addLog((isAI ? '🐾 Cat Brain: ' : '') + line, isAI ? 'ai' : null);
+
+  if(Math.random() < a.eventChance){
+    const ev = pick(a.events);
+    applyEffects(ev.effect, ev.catch, ev.casualty);
+    addLog(ev.text, ev.catch ? 'catch' : (ev.casualty ? 'event' : 'event'));
+  }
+
+  document.getElementById('thoughtText').textContent = line;
+  crisisCheck();
+  updateBars();
+}
+
+// ---------------- manual controls ----------------
+document.querySelectorAll('#actionsGrid .act').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if(state.aiMode) return;
+    performAction(btn.dataset.action, false);
+  });
+});
+
+// ---------------- Cat Brain ----------------
+function aiDecide(){
+  let worstKey = 'hunger', worstVal = state.hunger;
+  ['energy','affection','play','clean'].forEach(k=>{
+    if(state[k] < worstVal){ worstVal = state[k]; worstKey = k; }
+  });
+
+  let chosen;
+  if(worstVal > 65){
+    chosen = pick(['zoomies','window','scratch']);
+  } else if(worstKey==='hunger'){
+    chosen = 'feed';
+  } else if(worstKey==='energy'){
+    chosen = 'nap';
+  } else if(worstKey==='affection'){
+    chosen = Math.random()<0.6 ? 'pet' : 'play';
+  } else if(worstKey==='play'){
+    chosen = Math.random()<0.5 ? 'play' : 'zoomies';
+  } else {
+    chosen = 'litter';
+  }
+  performAction(chosen, true);
+}
+
+function toggleAI(){
+  state.aiMode = !state.aiMode;
+  const el = document.getElementById('aiToggle');
+  el.classList.toggle('on', state.aiMode);
+  document.querySelectorAll('#actionsGrid .act').forEach(b=> b.disabled = state.aiMode);
+
+  if(state.aiMode){
+    addLog('Cat Brain engaged — Biscuit now runs entirely on impulse.', 'ai');
+    aiDecide();
+    state.aiTimer = setInterval(aiDecide, 2200);
+  } else {
+    addLog('Cat Brain disengaged — you\'re back in charge, for whatever that\'s worth.');
+    clearInterval(state.aiTimer);
+  }
+}
+
+// ---------------- init ----------------
+addLog('Biscuit wakes from a nap and immediately assesses the room for problems.');
+updateBars();
+</script>
+</body>
+</html>

@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KIN — A Homo Sapiens Simulator</title>
+<style>
+  :root{
+    --night:#141b2e;
+    --navy:#1f2b47;
+    --navy-light:#2c3b5e;
+    --ember:#e8862a;
+    --ember-glow:#ffab5c;
+    --gold:#d9a441;
+    --clay:#b1543a;
+    --bone:#ede3cb;
+    --bone-dim:#b7ad91;
+    --star:#f5f0e6;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;
+    background:
+      radial-gradient(1px 1px at 8% 12%, var(--star), transparent),
+      radial-gradient(1px 1px at 22% 30%, var(--star), transparent),
+      radial-gradient(1px 1px at 38% 8%, var(--star), transparent),
+      radial-gradient(1px 1px at 55% 22%, var(--star), transparent),
+      radial-gradient(1px 1px at 68% 5%, var(--star), transparent),
+      radial-gradient(1px 1px at 80% 18%, var(--star), transparent),
+      radial-gradient(1px 1px at 92% 10%, var(--star), transparent),
+      radial-gradient(1px 1px at 12% 45%, var(--star), transparent),
+      radial-gradient(1px 1px at 46% 40%, var(--star), transparent),
+      radial-gradient(1px 1px at 88% 42%, var(--star), transparent),
+      linear-gradient(180deg, var(--night), #0d1220 65%);
+    background-attachment:fixed;
+    color:var(--bone);
+    font-family:'Palatino Linotype','Book Antiqua',Georgia,serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,.display{
+    font-family:'Palatino Linotype','Book Antiqua',Georgia,serif;
+    font-weight:700;
+    letter-spacing:0.6px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 60px;}
+
+  header{
+    display:flex;justify-content:space-between;align-items:center;
+    flex-wrap:wrap;gap:14px;
+    border-bottom:2px solid var(--navy-light);
+    padding-bottom:16px;margin-bottom:22px;
+  }
+  header .title-block h1{margin:0;font-size:2rem;color:var(--gold);text-shadow:1px 1px 0 rgba(0,0,0,0.4);}
+  header .title-block p{margin:4px 0 0;color:var(--bone-dim);font-size:0.85rem;font-style:italic;}
+
+  .day-badge{
+    background:var(--navy);border:1px solid var(--navy-light);
+    padding:8px 16px;border-radius:8px;text-align:center;min-width:130px;
+  }
+  .day-badge span{display:block;font-size:1.3rem;color:var(--ember-glow);font-weight:700;}
+  .day-badge small{color:var(--bone-dim);font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;}
+
+  .shell-badge{
+    background:var(--navy);border:1px solid var(--navy-light);
+    padding:8px 16px;border-radius:8px;text-align:center;min-width:100px;
+  }
+  .shell-badge span{display:block;font-size:1.3rem;color:var(--gold);font-weight:700;}
+  .shell-badge small{color:var(--bone-dim);font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;}
+
+  /* necklace-style toggle */
+  .ai-toggle{
+    display:flex;align-items:center;gap:10px;
+    background:var(--navy);border:1px solid var(--navy-light);
+    padding:8px 14px;border-radius:8px;cursor:pointer;user-select:none;
+    transition:border-color .2s;
+  }
+  .ai-toggle:hover{border-color:var(--gold);}
+  .ai-toggle .lever{
+    width:48px;height:22px;background:#0d1220;border-radius:11px;
+    position:relative;flex-shrink:0;border:1px solid var(--navy-light);
+  }
+  .ai-toggle .lever::after{
+    content:'';position:absolute;top:2px;left:2px;
+    width:16px;height:16px;border-radius:50%;background:var(--bone-dim);
+    transition:left .2s, background .2s, box-shadow .2s;
+  }
+  .ai-toggle.on .lever{background:#4a3315;}
+  .ai-toggle.on .lever::after{left:26px;background:var(--gold);box-shadow:0 0 8px var(--gold);}
+  .ai-toggle .label{font-size:0.8rem;font-weight:700;}
+  .ai-toggle .label small{display:block;color:var(--bone-dim);font-size:0.6rem;font-weight:normal;font-style:italic;}
+
+  .grid{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:20px;}
+  @media(max-width:900px){.grid{grid-template-columns:1fr;}}
+
+  .panel{
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent), var(--navy);
+    border:1px solid var(--navy-light);border-radius:10px;padding:16px;
+  }
+  .panel h2{font-size:0.85rem;color:var(--gold);margin:0 0 14px;
+    border-bottom:1px solid var(--navy-light);padding-bottom:8px;
+    text-transform:uppercase;letter-spacing:0.5px;}
+
+  .stat{margin-bottom:14px;}
+  .stat-row{display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:4px;color:var(--bone-dim);}
+  .groove{height:12px;background:rgba(0,0,0,0.4);border-radius:6px;overflow:hidden;border:1px solid rgba(0,0,0,0.5);}
+  .fill{height:100%;transition:width .5s ease;border-radius:6px;}
+  .fill.hunger{background:linear-gradient(90deg,#8a5a1e,var(--gold));}
+  .fill.energy{background:linear-gradient(90deg,#2f4a6b,#6f93c2);}
+  .fill.warmth{background:linear-gradient(90deg,#8a3f18,var(--ember));}
+  .fill.bond{background:linear-gradient(90deg,#6b2e22,var(--clay));}
+  .fill.spirit{background:linear-gradient(90deg,#5a4a7a,#a48bd1);}
+
+  .skill-line{font-size:0.75rem;color:var(--bone-dim);margin-top:10px;padding-top:10px;border-top:1px dashed var(--navy-light);}
+  .skill-line b{color:var(--bone);}
+
+  .stage{
+    position:relative;
+    background:radial-gradient(ellipse at 50% 85%, rgba(232,134,42,0.12), transparent 60%), #0d1220;
+    border:1px solid var(--navy-light);border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    min-height:280px;overflow:hidden;
+  }
+  .fire-glow{
+    position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+    width:220px;height:220px;border-radius:50%;
+    background:radial-gradient(circle, rgba(255,171,92,0.32), transparent 70%);
+    opacity:0;transition:opacity .6s;animation:flicker 2.4s infinite ease-in-out;pointer-events:none;
+  }
+  .fire-glow.active{opacity:1;}
+  @keyframes flicker{0%,100%{transform:translateX(-50%) scale(1);}50%{transform:translateX(-48%) scale(1.06);}}
+
+  .sky-glow{
+    position:absolute;top:0;left:0;right:0;height:70%;
+    background:radial-gradient(ellipse at 50% 0%, rgba(164,139,209,0.10), transparent 70%);
+    opacity:0;transition:opacity .6s;pointer-events:none;
+  }
+  .sky-glow.active{opacity:1;}
+
+  #manFigure{transition:transform .3s;}
+  #manFigure.bump{animation:bump .5s ease;}
+  @keyframes bump{0%{transform:translateY(0);}30%{transform:translateY(-6px) rotate(-2deg);}60%{transform:translateY(2px) rotate(1deg);}100%{transform:translateY(0);}}
+
+  .action-badge{
+    position:absolute;top:12px;left:12px;
+    background:var(--navy);border:1px solid var(--navy-light);
+    border-radius:8px;padding:6px 10px;font-size:0.75rem;
+    display:flex;align-items:center;gap:6px;
+  }
+  .action-badge .ic{font-size:1.1rem;}
+
+  .thought{
+    position:absolute;bottom:10px;left:0;right:0;text-align:center;
+    font-size:0.78rem;color:var(--bone-dim);font-style:italic;padding:0 16px;min-height:18px;
+  }
+
+  .actions-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  button.act{
+    background:#0d1220;border:1px solid var(--navy-light);color:var(--bone);
+    padding:10px 8px;border-radius:8px;
+    font-family:'Palatino Linotype',Georgia,serif;font-size:0.72rem;font-weight:700;
+    text-transform:uppercase;letter-spacing:0.4px;
+    cursor:pointer;transition:background .15s, border-color .15s, transform .1s;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+  }
+  button.act .ic{font-size:1.3rem;}
+  button.act:hover:not(:disabled){border-color:var(--gold);background:#161c2b;}
+  button.act:active:not(:disabled){transform:scale(0.96);}
+  button.act:disabled{opacity:0.35;cursor:not-allowed;}
+
+  .log-panel{grid-column:1/-1;margin-top:20px;}
+  .log-box{
+    height:190px;overflow-y:auto;background:#0a0e18;border:1px solid #000;
+    border-radius:8px;padding:10px 12px;
+    font-family:'Courier New',monospace;font-size:0.78rem;
+    display:flex;flex-direction:column-reverse;
+  }
+  .log-entry{padding:3px 0;border-bottom:1px dotted rgba(255,255,255,0.05);color:var(--bone-dim);}
+  .log-entry:first-child{border-bottom:none;}
+  .log-entry.event{color:var(--ember-glow);}
+  .log-entry.ai{color:#a48bd1;}
+  .log-entry.trade{color:var(--gold);}
+  .log-entry b{color:var(--bone);}
+
+  .footer-note{margin-top:18px;text-align:center;color:var(--bone-dim);font-size:0.7rem;font-style:italic;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="title-block">
+      <h1>Kin: A Homo Sapiens Simulator</h1>
+      <p>Hunt, trade, tell the old stories, and read the sky.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <div class="day-badge"><span id="dayCount">1</span><small id="timeOfDay">DAWN</small></div>
+      <div class="shell-badge"><span id="shellVal">12</span><small>shells traded</small></div>
+      <div class="ai-toggle" id="aiToggle" onclick="toggleAI()">
+        <div class="lever"></div>
+        <div class="label">Ancestral Guidance<small>let the old instincts lead</small></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- STATS -->
+    <div class="panel">
+      <h2>Condition</h2>
+      <div class="stat">
+        <div class="stat-row"><span>Hunger</span><span id="hungerVal">70</span></div>
+        <div class="groove"><div class="fill hunger" id="hungerBar" style="width:70%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Energy</span><span id="energyVal">70</span></div>
+        <div class="groove"><div class="fill energy" id="energyBar" style="width:70%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Warmth</span><span id="warmthVal">55</span></div>
+        <div class="groove"><div class="fill warmth" id="warmthBar" style="width:55%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Kinship</span><span id="bondVal">50</span></div>
+        <div class="groove"><div class="fill bond" id="bondBar" style="width:50%"></div></div>
+      </div>
+      <div class="stat">
+        <div class="stat-row"><span>Spirit</span><span id="spiritVal">50</span></div>
+        <div class="groove"><div class="fill spirit" id="spiritBar" style="width:50%"></div></div>
+      </div>
+      <div class="skill-line">
+        Oral tradition: <b id="taleVal">0</b> tales known &nbsp;·&nbsp;
+        Fire: <b id="fireState">unlit</b>
+      </div>
+    </div>
+
+    <!-- FIGURE STAGE -->
+    <div class="panel" style="display:flex;flex-direction:column;">
+      <h2>Ila, of the River Band</h2>
+      <div class="stage">
+        <div class="sky-glow" id="skyGlow"></div>
+        <div class="fire-glow" id="fireGlow"></div>
+        <div class="action-badge"><span class="ic" id="badgeIcon">🧍</span><span id="badgeText">Idle</span></div>
+        <svg id="manFigure" width="180" height="220" viewBox="0 0 180 220">
+          <ellipse cx="90" cy="205" rx="55" ry="8" fill="rgba(0,0,0,0.45)"/>
+          <!-- legs: sewn hide leggings -->
+          <rect x="71" y="150" width="13" height="50" rx="5" fill="#9a6b42"/>
+          <rect x="96" y="150" width="13" height="50" rx="5" fill="#875c37"/>
+          <!-- wrap skirt -->
+          <path d="M60 145 Q90 163 120 145 L120 156 Q90 174 60 156 Z" fill="#b98a54"/>
+          <!-- torso: fitted hide tunic -->
+          <path d="M63 90 Q60 145 68 150 L112 150 Q120 145 117 90 Q90 78 63 90 Z" fill="#c79b6e"/>
+          <!-- shell necklace -->
+          <path d="M74 92 Q90 102 106 92" stroke="#ede3cb" stroke-width="2" fill="none"/>
+          <circle cx="82" cy="98" r="2" fill="#ede3cb"/>
+          <circle cx="90" cy="101" r="2" fill="#ede3cb"/>
+          <circle cx="98" cy="98" r="2" fill="#ede3cb"/>
+          <!-- head -->
+          <ellipse cx="90" cy="55" rx="24" ry="23" fill="#c9986a"/>
+          <!-- hair, tied back -->
+          <path d="M66 47 Q62 24 90 22 Q118 24 114 47 Q106 32 90 32 Q74 32 66 47 Z" fill="#241c14"/>
+          <ellipse cx="90" cy="30" rx="7" ry="10" fill="#241c14"/>
+          <!-- eyes -->
+          <circle cx="83" cy="55" r="2.2" fill="#191510"/>
+          <circle cx="97" cy="55" r="2.2" fill="#191510"/>
+          <!-- brow, softer than neanderthal -->
+          <path d="M76 49 Q83 45 90 48" stroke="#8a6440" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <path d="M90 48 Q97 45 104 49" stroke="#8a6440" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <!-- mouth -->
+          <path d="M83 69 Q90 73 97 69" stroke="#7a5236" stroke-width="2" fill="none" stroke-linecap="round" id="mouth"/>
+          <!-- static arm -->
+          <path d="M65 95 Q45 110 48 140" stroke="#c79b6e" stroke-width="13" fill="none" stroke-linecap="round"/>
+          <!-- active arm -->
+          <g id="toolArm">
+            <path d="M115 95 Q140 100 145 130" stroke="#c79b6e" stroke-width="13" fill="none" stroke-linecap="round"/>
+          </g>
+          <g id="toolItem"></g>
+        </svg>
+        <div class="thought" id="thoughtText">She watches the horizon, waiting for a sign.</div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="panel">
+      <h2>Actions</h2>
+      <div class="actions-grid" id="actionsGrid">
+        <button class="act" data-action="hunt"><span class="ic">🦴</span>Hunt game</button>
+        <button class="act" data-action="gather"><span class="ic">🌾</span>Gather</button>
+        <button class="act" data-action="fire"><span class="ic">🔥</span>Tend fire</button>
+        <button class="act" data-action="craft"><span class="ic">🪓</span>Craft tool</button>
+        <button class="act" data-action="trade"><span class="ic">🐚</span>Trade</button>
+        <button class="act" data-action="migrate"><span class="ic">🚶</span>Migrate</button>
+        <button class="act" data-action="story"><span class="ic">🗣️</span>Tell a story</button>
+        <button class="act" data-action="stargaze"><span class="ic">✨</span>Stargaze</button>
+      </div>
+    </div>
+
+    <!-- LOG -->
+    <div class="panel log-panel">
+      <h2>The telling (oldest words at bottom)</h2>
+      <div class="log-box" id="logBox"></div>
+    </div>
+
+  </div>
+
+  <p class="footer-note">Every act costs time and strength. Ancestral Guidance lets Ila act on instinct alone, tending to whatever the band needs most.</p>
+</div>
+
+<script>
+// ---------------- state ----------------
+const state = {
+  day: 1, tick: 0,
+  hunger: 70, energy: 70, warmth: 55, bond: 50, spirit: 50,
+  shells: 12, tales: 0,
+  fireBuilt: false, aiMode: false, aiTimer: null,
+};
+
+const TIMES = ["DAWN","MORNING","MIDDAY","AFTERNOON","DUSK","NIGHT"];
+
+const tools = {
+  hunt:     '<path d="M145 130 L172 100" stroke="#3a2a1a" stroke-width="4" stroke-linecap="round"/><path d="M172 100 L163 98 M172 100 L170 110" stroke="#888a86" stroke-width="3" stroke-linecap="round"/><path d="M150 122 L158 128" stroke="#3a2a1a" stroke-width="3" stroke-linecap="round"/>',
+  gather:   '<path d="M140 120 Q150 128 148 140 Q136 145 128 136 Z" fill="#8a9a5a"/>',
+  fire:     '<path d="M145 130 L160 108" stroke="#5a3c26" stroke-width="5" stroke-linecap="round"/>',
+  craft:    '<path d="M145 130 L158 112" stroke="#5a3c26" stroke-width="5" stroke-linecap="round"/><ellipse cx="160" cy="108" rx="7" ry="5" fill="#888a86"/>',
+  trade:    '<circle cx="155" cy="122" r="6" fill="#ede3cb"/><circle cx="163" cy="128" r="5" fill="#d9a441"/><circle cx="150" cy="130" r="4" fill="#ede3cb"/>',
+  migrate:  '<path d="M145 130 L160 100" stroke="#7a5236" stroke-width="5" stroke-linecap="round"/>',
+  story:    '',
+  stargaze: '',
+};
+
+const ACTIONS = {
+  hunt: {
+    icon:"🦴", label:"Hunt game",
+    effect:()=>({hunger:+27, energy:-17, spirit:+3}),
+    lines:[
+      "The spear-thrower sends its shaft further and truer than a hand ever could.",
+      "The band brings down an aurochs at the river bend. There will be meat for days.",
+      "She tracks a wounded ibex for hours before the final throw."
+    ],
+    eventChance:0.22,
+    events:[
+      {chance:0.5, text:"A cave lion challenges the kill. The band drives it off, shaken but unharmed.", effect:{spirit:-6, energy:-8}},
+      {chance:0.5, text:"An unusually large herd means meat enough to smoke and carry for the road ahead.", effect:{hunger:+15, shells:+2}},
+    ]
+  },
+  gather: {
+    icon:"🌾", label:"Gather",
+    effect:()=>({hunger:+14, energy:-8}),
+    lines:[
+      "Wild grains, tubers, and late-season berries fill the carrying hide.",
+      "She reads the plants the way her mother taught her — which roots, which not.",
+      "A stand of nut trees, remembered from last year, hasn't failed her."
+    ],
+    eventChance:0.18,
+    events:[
+      {chance:1, text:"A vein of red ochre in the riverbank — valuable for trade and for the wall.", effect:{shells:+3}},
+    ]
+  },
+  fire: {
+    icon:"🔥", label:"Tend fire",
+    effect:()=>({warmth:+28, energy:-8}),
+    lines:[
+      "Flint and pyrite spark against dry tinder until it catches.",
+      "The fire is coaxed back from embers, fed twig by twig.",
+      "Smoke rises steady now, marking the camp for anyone still out on the plain."
+    ],
+    eventChance:0.12,
+    events:[
+      {chance:1, text:"Wind nearly steals the flame. She shields it with her whole body until it holds.", effect:{energy:-6}},
+    ],
+    onSuccess:()=>{state.fireBuilt=true;}
+  },
+  craft: {
+    icon:"🪓", label:"Craft tool",
+    effect:()=>({energy:-10, spirit:+2}),
+    lines:[
+      "A bone needle, fine enough to sew hide against the cold.",
+      "She fits a new point to the spear-thrower, testing its balance.",
+      "Antler and sinew become something sharper than either alone."
+    ],
+    eventChance:0.15,
+    events:[
+      {chance:1, text:"The new tool works better than expected — others in the band want one too.", effect:{bond:+5, shells:+2}},
+    ]
+  },
+  trade: {
+    icon:"🐚", label:"Trade",
+    effect:()=>({energy:-6, bond:+10, shells:+4}),
+    lines:[
+      "A neighboring band offers sea shells for smoked meat and ochre.",
+      "Gestures and a few shared words settle the exchange.",
+      "Goods change hands that have traveled further than either band ever will."
+    ],
+    eventChance:0.18,
+    events:[
+      {chance:0.5, text:"The other band drives a hard bargain. She walks away with less than hoped.", effect:{shells:-3}},
+      {chance:0.5, text:"They part on good terms, with word of safe water further north.", effect:{spirit:+5}},
+    ]
+  },
+  migrate: {
+    icon:"🚶", label:"Migrate",
+    effect:()=>({spirit:+12, energy:-15, warmth:-6}),
+    lines:[
+      "The band moves on, following the herds toward new ground.",
+      "New valleys, new rivers, and territory no one in living memory has crossed.",
+      "She walks at the front, reading the land for water and shelter."
+    ],
+    eventChance:0.26,
+    events:[
+      {chance:0.5, text:"Tracks of another band cross theirs — unfamiliar, best approached carefully.", effect:{spirit:-6, bond:-4}},
+      {chance:0.5, text:"They find a sheltered valley, rich with game and fresh water.", effect:{spirit:+8, hunger:+8}},
+    ]
+  },
+  story: {
+    icon:"🗣️", label:"Tell a story",
+    effect:()=>({bond:+22, energy:-6, tales:+1}),
+    lines:[
+      "By the fire, she tells of the great flood that once swallowed the lowlands.",
+      "Hands and voice together conjure the hunt that fed the band for a whole winter.",
+      "The children repeat the words back, already half-memorized."
+    ],
+    eventChance:0.1,
+    events:[
+      {chance:1, text:"An elder adds a detail no one has heard before — the story grows.", effect:{spirit:+8}},
+    ]
+  },
+  stargaze: {
+    icon:"✨", label:"Stargaze",
+    effect:()=>({spirit:+16, energy:-4}),
+    lines:[
+      "She traces the same stars her mother once pointed out to her.",
+      "The night sky holds routes, seasons, and old stories all at once.",
+      "A long silence, just watching the sky turn."
+    ],
+    eventChance:0.1,
+    events:[
+      {chance:1, text:"A falling star crosses the sky — the whole camp falls quiet at once.", effect:{bond:+6, spirit:+6}},
+    ],
+    glow:'sky'
+  },
+};
+
+// ---------------- helpers ----------------
+function clamp(v){return Math.max(0, Math.min(100, v));}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+
+function addLog(text, cls){
+  const box = document.getElementById('logBox');
+  const div = document.createElement('div');
+  div.className = 'log-entry' + (cls ? ' '+cls : '');
+  div.innerHTML = '<b>Day '+state.day+'</b> · '+text;
+  box.insertBefore(div, box.firstChild);
+}
+
+function updateBars(){
+  ['hunger','energy','warmth','bond','spirit'].forEach(key=>{
+    document.getElementById(key==='bond'?'bondVal':key+'Val').textContent = Math.round(state[key]);
+    document.getElementById(key==='bond'?'bondBar':key+'Bar').style.width = state[key]+'%';
+  });
+  document.getElementById('taleVal').textContent = state.tales;
+  document.getElementById('shellVal').textContent = state.shells;
+  document.getElementById('fireState').textContent = state.fireBuilt ? 'burning' : 'unlit';
+  document.getElementById('fireGlow').classList.toggle('active', state.fireBuilt);
+  document.getElementById('dayCount').textContent = state.day;
+  document.getElementById('timeOfDay').textContent = TIMES[state.tick % TIMES.length];
+}
+
+function setBadgeAndTool(key){
+  const a = ACTIONS[key];
+  document.getElementById('badgeIcon').textContent = a.icon;
+  document.getElementById('badgeText').textContent = a.label;
+  document.getElementById('toolItem').innerHTML = tools[key] || '';
+  document.getElementById('skyGlow').classList.toggle('active', a.glow === 'sky');
+  const fig = document.getElementById('manFigure');
+  fig.classList.remove('bump'); void fig.offsetWidth; fig.classList.add('bump');
+}
+
+function applyEffects(effect){
+  for(const k in effect){
+    if(k==='tales'){ state.tales += effect[k]; continue; }
+    if(k==='shells'){ state.shells = Math.max(0, state.shells + effect[k]); continue; }
+    state[k] = clamp(state[k] + effect[k]);
+  }
+}
+
+function passiveDecay(){
+  state.hunger = clamp(state.hunger - 3);
+  state.energy = clamp(state.energy - 2);
+  state.warmth = clamp(state.warmth - (state.fireBuilt ? 2 : 5));
+  state.bond   = clamp(state.bond - 1);
+  if(state.warmth < 15) state.fireBuilt = false;
+  state.tick++;
+  if(state.tick % TIMES.length === 0) state.day++;
+}
+
+function crisisCheck(){
+  if(state.hunger <= 5){ addLog("Hunger gnaws at the whole band now.", 'event'); }
+  if(state.energy <= 5){ addLog("Her legs shake with the effort of standing.", 'event'); }
+  if(state.warmth <= 5){ addLog("The cold has crept past the fire's reach.", 'event'); }
+  if(state.bond <= 5){ addLog("Old tensions surface within the band.", 'event'); }
+  if(state.spirit <= 5){ addLog("A heaviness settles over the camp, hard to name.", 'event'); }
+}
+
+function performAction(key, isAI){
+  const a = ACTIONS[key];
+  setBadgeAndTool(key);
+  const eff = a.effect();
+  applyEffects(eff);
+  if(a.onSuccess) a.onSuccess();
+  passiveDecay();
+
+  let line = pick(a.lines);
+  addLog((isAI ? '🌒 Instinct: ' : '') + line, isAI ? 'ai' : (eff.shells ? 'trade' : null));
+
+  if(Math.random() < a.eventChance){
+    const ev = pick(a.events);
+    applyEffects(ev.effect);
+    addLog(ev.text, 'event');
+  }
+
+  document.getElementById('thoughtText').textContent = line;
+  crisisCheck();
+  updateBars();
+}
+
+// ---------------- manual controls ----------------
+document.querySelectorAll('#actionsGrid .act').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if(state.aiMode) return;
+    performAction(btn.dataset.action, false);
+  });
+});
+
+// ---------------- Ancestral Guidance ----------------
+function aiDecide(){
+  let worstKey = 'hunger', worstVal = state.hunger;
+  ['warmth','energy','bond','spirit'].forEach(k=>{
+    if(state[k] < worstVal){ worstVal = state[k]; worstKey = k; }
+  });
+
+  let chosen;
+  if(worstVal > 65){
+    chosen = pick(['craft','trade','stargaze','migrate']);
+  } else if(worstKey==='hunger'){
+    chosen = Math.random()<0.6 ? 'hunt' : 'gather';
+  } else if(worstKey==='warmth'){
+    chosen = 'fire';
+  } else if(worstKey==='energy'){
+    chosen = Math.random()<0.5 ? 'gather' : 'fire';
+  } else if(worstKey==='bond'){
+    chosen = 'story';
+  } else {
+    chosen = 'stargaze';
+  }
+  performAction(chosen, true);
+}
+
+function toggleAI(){
+  state.aiMode = !state.aiMode;
+  const el = document.getElementById('aiToggle');
+  el.classList.toggle('on', state.aiMode);
+  document.querySelectorAll('#actionsGrid .act').forEach(b=> b.disabled = state.aiMode);
+
+  if(state.aiMode){
+    addLog('Ancestral Guidance takes hold — Ila moves on instinct alone.', 'ai');
+    aiDecide();
+    state.aiTimer = setInterval(aiDecide, 2200);
+  } else {
+    addLog('She steadies herself, and you take the lead again.');
+    clearInterval(state.aiTimer);
+  }
+}
+
+// ---------------- init ----------------
+addLog('Ila rises before dawn, the fire down to embers and the horizon still dark.');
+updateBars();
+</script>
+</body>
+</html>
